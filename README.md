@@ -1,11 +1,20 @@
-<div style="text-align: center;">
-  <img src="src/main/resources/icon_256.png" />
-</div>
+<p align="center"><img src="src/main/resources/icon_256.png" /></p>
 
 # ArdaBiomesEditor
 A biome color mapping editor for Ardacraft and Polytone
 
+## Installation
 
+Download the latest release and unzip the archive. Run `ArdaBiomesEditor.exe` to start the application.
+
+## Usage
+
+- `File` → `Open...` to load the biome mappings from a [resource pack](https://github.com/ArdaCraft/ACRP).
+- The list of biomes are displayed on the left column. The color key for the biome is displayed on the center pane.
+- A biome color key must be saved in the resource pack before editing a new biome (`File` → `Save` or `Save` on the bottom left column)
+
+> [!IMPORTANT]
+> Editing a resource pack while the game is running **is possible** but a new resource pack version will be created in the same folder if the resource pack is in use. The app will automatically switch to the new version.
 
 ## Packaging and release
 
