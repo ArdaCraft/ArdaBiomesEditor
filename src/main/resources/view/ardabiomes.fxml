@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import com.duom.ardabiomeseditor.ui.views.BiomeTableView?>
+
+<StackPane xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:controller="com.duom.ardabiomeseditor.ui.controller.ArdaBiomesController"
+           prefWidth="1500"
+           prefHeight="1000">
+    <BorderPane>
+        <top>
+            <fx:include fx:id="fileManagement" source="fileManagement.fxml"/>
+        </top>
+
+        <center>
+            <SplitPane dividerPositions="0.85">
+                <SplitPane dividerPositions="0.20">
+                    <fx:include fx:id="biomeSelection" source="biomeSelector.fxml"/>
+                    <BiomeTableView fx:id="biomeTableView" />
+                </SplitPane>
+                <fx:include fx:id="colorEditor" source="colorEditor.fxml"/>
+            </SplitPane>
+        </center>
+    </BorderPane>
+
+    <VBox fx:id="progressOverlay" visible="false"
+          style="-fx-background-color: rgba(0,0,0,0.5);"
+          alignment="CENTER" spacing="20">
+        <ProgressBar fx:id="progressBar" prefWidth="300"/>
+        <Label fx:id="progressLabel" textFill="white"
+               style="-fx-font-size: 14px;"/>
+    </VBox>
+</StackPane>

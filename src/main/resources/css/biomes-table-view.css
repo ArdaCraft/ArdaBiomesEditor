@@ -1,0 +1,6 @@
+.column-header {
+
+    -fx-font-weight:normal;
+    -fx-line-spacing: -5px;
+    -fx-cursor: hand;
+  }

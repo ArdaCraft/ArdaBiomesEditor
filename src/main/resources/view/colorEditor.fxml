@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.duom.ardabiomeseditor.ui.controller.ColorEditorController"
+      prefWidth="280" minWidth="280" spacing="10" style="-fx-padding: 10;">
+
+    <VBox fx:id="cellColorSettings" visible="false" managed="false">
+        <VBox.margin>
+            <Insets bottom="20" />
+        </VBox.margin>
+        <Label fx:id="cellColorSettingsHeader" text="Color Editor" styleClass="title-3"/>
+        <Label fx:id="cellColorSettingsSubtitle" text="Cell" styleClass="title-4"/>
+        <Separator />
+        <ColorPicker fx:id="colorPicker" onAction="#onColorPickerChange"/>
+    </VBox>
+
+    <VBox fx:id="columnHsvSettings" visible="false" managed="false">
+        <VBox.margin>
+            <Insets bottom="20" />
+        </VBox.margin>
+        <Label fx:id="columnHsvSettingsHeader" text="Column Adjustments" styleClass="title-3"/>
+        <Label fx:id="columnHsvSettingsSubtitle" text="Column" styleClass="title-4"/>
+        <Separator />
+
+        <Label text="Hue" />
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Slider fx:id="hueSlider" min="-180" max="180" prefWidth="200" />
+            <Label fx:id="hueLabel" text="0°" minWidth="40" />
+        </HBox>
+
+        <Label text="Saturation" />
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Slider fx:id="saturationSlider" min="-100" prefWidth="200" />
+            <Label fx:id="saturationLabel" text="0%" minWidth="40" />
+        </HBox>
+
+        <Label text="Lightness" />
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Slider fx:id="lightnessSlider" min="-100" prefWidth="200" />
+            <Label fx:id="lightnessLabel" text="0%" minWidth="40" />
+        </HBox>
+
+        <Button text="Reset sliders" onAction="#onResetHSL" maxWidth="Infinity">
+            <VBox.margin>
+                <Insets top="20" />
+            </VBox.margin>
+        </Button>
+    </VBox>
+
+    <Region VBox.vgrow="ALWAYS" />
+
+    <Button text="Clear Selection" onAction="#onClearSelection" maxWidth="Infinity"/>
+    <Button text="Save" onAction="#onSaveColorEdits" maxWidth="Infinity"/>
+</VBox>

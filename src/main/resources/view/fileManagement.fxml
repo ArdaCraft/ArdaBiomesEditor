@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<?import javafx.scene.text.TextFlow?>
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.duom.ardabiomeseditor.ui.controller.FileManagementController"
+            style="-fx-background-color: #161b22;">
+    <left>
+        <MenuBar>
+            <Menu text="File">
+                <MenuItem text="Open..." onAction="#onOpenZip" />
+                <Menu fx:id="recentFilesMenu" text="Open Recent">
+                    <MenuItem text="No recent files" disable="true" />
+                </Menu>
+                <SeparatorMenuItem />
+                <MenuItem text="Save" onAction="#onSaveBiomeEdits" />
+                <MenuItem text="Exit" onAction="#onExitApp" />
+            </Menu>
+            <Menu text="Help">
+                <MenuItem text="About" onAction="#onShowAboutPopup" />
+                <MenuItem text="Logs" onAction="#onOpenLogsFolder" />
+            </Menu>
+        </MenuBar>
+    </left>
+    <center>
+        <VBox alignment="CENTER" VBox.vgrow="ALWAYS">
+            <TextFlow fx:id="currentFileLabel" textAlignment="CENTER"/>
+        </VBox>
+    </center>
+</BorderPane>
