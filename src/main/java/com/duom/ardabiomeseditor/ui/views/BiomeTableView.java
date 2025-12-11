@@ -221,37 +221,38 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
                 updateAllHeaders();
             }
         } else if (mouseEvent.isShiftDown()) {
-/* FIXME
-            Set<TablePosition<ObservableList<ColorData>, ?>> selectedColumns =  biomeTableViewSelectionModel.getSelectedColumns();
-            if (!selectedColumns.isEmpty()) {
-                // Extract column indices from TablePosition set
-                Set<Integer> columnIndices = selectedColumns.stream()
-                        .map(TablePosition::getColumn)
-                        .collect(Collectors.toSet());
 
-                // Get the minimum column index as anchor
-                int anchorColumn = columnIndices.stream()
-                        .min(Integer::compareTo)
-                        .orElse(columnIndex);
+            Set<String> selectedColumnNames = biomeTableViewSelectionModel.getSelectedColumns();
+
+            if (!selectedColumnNames.isEmpty()) {
+
+                // Find the anchor column name (first selected column)
+                String anchorColumnName = selectedColumnNames.stream()
+                        .findFirst()
+                        .orElse(null);
+
+                // Get column indices for anchor and clicked column
+                int anchorIndex = getColumnIndex(anchorColumnName);
+                int clickedIndex = getColumnIndex(modifierName);
 
                 // Select range between anchor and clicked column
-                int start = Math.min(anchorColumn, columnIndex);
-                int end = Math.max(anchorColumn, columnIndex);
+                int start = Math.min(anchorIndex, clickedIndex);
+                int end = Math.max(anchorIndex, clickedIndex);
 
                 for (int i = start; i <= end; i++) {
-                    if (!biomeTableViewSelectionModel.isColumnSelected(i)) {
-                        biomeTableViewSelectionModel.selectColumn(i);
+                    String columnName = (String) getColumns().get(i + 1).getUserData();
+                    if (!biomeTableViewSelectionModel.isColumnSelected(columnName)) {
+                        biomeTableViewSelectionModel.selectColumn(columnName);
                     }
                 }
 
-                // Build formatted headers string
-                String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumnIndices().stream()
-                        .map(colIdx -> formatHeaderString((String) getColumns().get(colIdx + 1).getUserData()))
+                String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumns().stream()
+                        .map(this::formatHeaderString)
                         .collect(Collectors.joining(", "));
 
                 if (clickHandler != null)
-                    clickHandler.accept(columnIndex, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
-            }*/
+                    clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
+            }
 
         } else {
             // Normal selection
@@ -584,6 +585,9 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         return biomeKey;
     }
 
+    /**
+     * @return the list of selected ColorData cells
+     */
     public List<ColorData> getSelectedCells(){
 
         List<ColorData> selectedColors = new ArrayList<>();
@@ -600,8 +604,25 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         return selectedColors;
     }
 
+    /**
+     * @return the set of selected column modifier names
+     */
     public Set<String> getSelectedColumns(){
 
         return biomeTableViewSelectionModel.getSelectedColumns();
+    }
+
+    /**
+     * Gets the column index for a given modifier name.
+     * @param modifierName the modifier name to find
+     * @return the column index (excluding the index column), or -1 if not found
+     */
+    private int getColumnIndex(String modifierName) {
+        for (int i = 1; i < getColumns().size(); i++) {
+            if (modifierName.equals(getColumns().get(i).getUserData())) {
+                return i - 1; // Subtract 1 to exclude index column
+            }
+        }
+        return -1;
     }
 }
