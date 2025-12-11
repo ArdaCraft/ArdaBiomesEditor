@@ -141,8 +141,19 @@ public class ArdaBiomesController {
      * @param saveTask The task that encountered the failure.
      */
     private void handleSaveFailure(Task<Void> saveTask) {
+
         ArdaBiomesEditor.LOGGER.error("Error while persisting edits", saveTask.getException());
         progressOverlay.setVisible(false);
+
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(I18nService.get("ardabiomeseditor.filmanagement.error.rp_saving_error_title"));
+        alert.setHeaderText(I18nService.get("ardabiomeseditor.filmanagement.error.rp_saving_error_title"));
+        alert.setContentText(saveTask.getException().getMessage());
+
+        alert.getButtonTypes().setAll(new ButtonType(I18nService.get("ardabiomeseditor.generic.ok")));
+
+        alert.showAndWait();
+
     }
 
     /**

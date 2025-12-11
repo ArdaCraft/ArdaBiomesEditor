@@ -6,10 +6,10 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TablePosition;
 import javafx.scene.control.TableView;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Custom selection model for a TableView that allows for advanced selection handling,
@@ -20,7 +20,9 @@ import java.util.Set;
 public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectionModel<S> {
 
     private final TableView<S> tableView;
-    private Set<TablePosition<S,?>> selectedCells;
+
+    private record CellIdentifier(int row, String modifierName) {}
+    private Set<CellIdentifier> selectedCells;
 
     public BiomeTableViewSelectionModel(TableView<S> tableView) {
         super(tableView);
@@ -36,7 +38,17 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
     @Override
     public ObservableList<TablePosition> getSelectedCells() {
 
-        return FXCollections.observableArrayList(selectedCells);
+        ObservableList<TablePosition> positions = FXCollections.observableArrayList();
+
+        for (CellIdentifier cell : selectedCells) {
+            // Find the column with matching modifier name from UserData
+            tableView.getColumns().stream()
+                    .filter(col -> cell.modifierName().equals(col.getUserData()))
+                    .findFirst().ifPresent(column -> positions.add(new TablePosition<>(tableView, cell.row(), column)));
+
+        }
+
+        return positions;
     }
 
     /**
@@ -48,10 +60,10 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
      */
     @Override
     public boolean isSelected(int row, TableColumn<S, ?> column) {
-        int colIndex = tableView.getColumns().indexOf(column);
-        return selectedCells.stream()
-                .anyMatch(pos -> pos.getRow() == row &&
-                        tableView.getColumns().indexOf(pos.getTableColumn()) == colIndex);
+
+        String modifierName = column != null ? (String) column.getUserData() : "";
+
+        return selectedCells.contains(new CellIdentifier(row, modifierName));
     }
 
     /**
@@ -63,24 +75,28 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
     @Override
     public void select(int row, TableColumn<S, ?> column) {
 
+        String modifierName = column != null ? (String) column.getUserData() : "";
+
         // Select specific cell
         if (column != null && row != -1) {
 
-            selectedCells.add(new TablePosition<>(tableView, row, column));
+            selectedCells.add(new CellIdentifier(row, modifierName));
 
         } else if (column != null) {
 
             // Select entire column
             for (int rowIndex = 0; rowIndex < tableView.getItems().size(); rowIndex++) {
 
-                selectedCells.add(new TablePosition<>(tableView, rowIndex, column));
+                selectedCells.add(new CellIdentifier(rowIndex, modifierName));
             }
         } else {
 
             // Select entire row
             for (int columnIndex = 1; columnIndex < tableView.getColumns().size(); columnIndex++) {
 
-                selectedCells.add(new TablePosition<>(tableView, row, tableView.getColumns().get(columnIndex)));
+                var currentColumn = tableView.getColumns().get(columnIndex);
+                String currentColumnModifierName = currentColumn != null ? (String) currentColumn.getUserData() : "";
+                selectedCells.add(new CellIdentifier(row, currentColumnModifierName));
             }
         }
     }
@@ -108,12 +124,15 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
 
         if (column != null) {
 
-            selectedCells.remove(new TablePosition<>(tableView, row, column));
+            String modifierName = (String) column.getUserData();
+            selectedCells.remove(new CellIdentifier(row, modifierName));
         } else {
 
             for (int columnIndex = 1; columnIndex < tableView.getColumns().size(); columnIndex++) {
 
-                selectedCells.remove(new TablePosition<>(tableView, row, tableView.getColumns().get(columnIndex)));
+                var currentColumn = tableView.getColumns().get(columnIndex);
+                String currentColumnModifierName = currentColumn != null ? (String) currentColumn.getUserData() : "";
+                selectedCells.remove(new CellIdentifier(row, currentColumnModifierName));
             }
         }
     }
@@ -132,96 +151,73 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
      *
      * @return A set of TablePosition objects representing fully selected columns.
      */
-    public Set<TablePosition<S,?>> getSelectedColumns() {
+    public Set<String> getSelectedColumns() {
 
         int numberOfRows = tableView.getItems().size();
-        Set<TablePosition<S,?>> selectedColumns = new HashSet<>();
-        Map<Integer, Set<TablePosition<S,?>>> columnPositions = new HashMap<>();
 
         if (numberOfRows == 0) {
-            return selectedColumns;
+            return new HashSet<>();
         }
 
-        for (TablePosition<S, ?> pos : selectedCells) {
-            int colIndex = tableView.getColumns().indexOf(pos.getTableColumn());
-            columnPositions.computeIfAbsent(colIndex, k -> new HashSet<>()).add(pos);
-        }
+        // Group selections by modifier name and count how many rows are selected per column
+        Map<String, Long> columnSelectionCounts = selectedCells.stream()
+                .collect(Collectors.groupingBy(
+                        CellIdentifier::modifierName,
+                        Collectors.counting()
+                ));
 
-        // Check which columns are fully selected and add all their positions
-        for (Map.Entry<Integer, Set<TablePosition<S,?>>> entry : columnPositions.entrySet()) {
-            if (entry.getValue().size() == numberOfRows) {
-                selectedColumns.addAll(entry.getValue());
-            }
-        }
-
-        return selectedColumns;
-    }
-
-    /**
-     * Retrieves the indices of fully selected columns.
-     *
-     * @return A set of integers representing the indices of fully selected columns.
-     */
-    public Set<Integer> getSelectedColumnIndices() {
-
-        Set<Integer> selectedColumnIndices = new HashSet<>();
-
-        for (TablePosition<S, ?> pos : getSelectedColumns()) {
-            int colIndex = tableView.getColumns().indexOf(pos.getTableColumn());
-            selectedColumnIndices.add(colIndex);
-        }
-
-        return selectedColumnIndices;
+        // Return only columns where all rows are selected
+        return columnSelectionCounts.entrySet().stream()
+                .filter(entry -> entry.getValue() == numberOfRows)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
     }
 
     /**
      * Checks if a specific column is fully selected.
      *
-     * @param columnIndex The index of the column to check.
+     * @param modifierName The name of the modifier represented by the column.
      * @return True if the column is fully selected, false otherwise.
      */
-    public boolean isColumnSelected(int columnIndex) {
+    public boolean isColumnSelected(String modifierName) {
 
-        var numberOfRows = tableView.getItems().size();
-
-        for (TablePosition<S, ?> pos : selectedCells) {
-            if (tableView.getColumns().indexOf(pos.getTableColumn()) == columnIndex) {
-                numberOfRows--;
-            }
-        }
-
-        return numberOfRows==0;
+        int numberOfRows = tableView.getItems().size();
+        return selectedCells.stream()
+                .filter(cell -> cell.modifierName.equals(modifierName))
+                .count() == numberOfRows;
     }
 
     /**
      * Selects an entire column by its index.
      *
-     * @param columnIndex The index of the column to select.
+     * @param modifierName The name of the modifier represented by the column.
      */
-    public void selectColumn(int columnIndex) {
-        select(-1, tableView.getColumns().get(columnIndex));
+    public void selectColumn(String modifierName) {
+
+        for (int rowIndex = 0; rowIndex < tableView.getItems().size(); rowIndex++) {
+            selectedCells.add(new CellIdentifier(rowIndex, modifierName));
+        }
     }
 
     /**
      * Deselects an entire column by its index.
      *
-     * @param columnIndex The index of the column to deselect.
+     * @param modifierName The name of the modifier represented by the column.
      */
-    public void deselectColumn(int columnIndex) {
-        for (int rowIndex = 0; rowIndex < tableView.getItems().size(); rowIndex++) {
-            clearSelection(rowIndex, tableView.getColumns().get(columnIndex));
-        }
+    public void deselectColumn(String modifierName) {
+        selectedCells.removeIf(cell -> cell.modifierName().equals(modifierName));
     }
 
     /**
      * Selects a specific cell by its row and column indices.
      *
      * @param rowIndex    The row index of the cell to select.
-     * @param columnIndex The column index of the cell to select.
+     * @param column      The column index of the cell to select.
      */
-    public void selectCell(int rowIndex, int columnIndex) {
+    public void selectCell(int rowIndex, TableColumn<S, ?> column) {
         clearSelection();
-        select(rowIndex, tableView.getColumns().get(columnIndex));
+        String modifierName = column != null ? (String) column.getUserData() : "";
+        selectedCells.add(new CellIdentifier(rowIndex, modifierName));
     }
 
     @Override

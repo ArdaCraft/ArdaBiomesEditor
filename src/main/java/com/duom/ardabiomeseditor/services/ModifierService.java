@@ -67,12 +67,15 @@ public class ModifierService {
 
             for (int y = 0; y < colors.size(); y++) {
 
-                String hexColor = colors.get(y).getCurrentColor();
+                if (colors.get(y) != null) {
 
-                // Convert hex color to RGB integer
-                int rgb = Integer.parseInt(hexColor.substring(1), 16);
+                    String hexColor = colors.get(y).getCurrentColor();
 
-                image.setRGB(biomeKey, y, rgb);
+                    // Convert hex color to RGB integer
+                    int rgb = Integer.parseInt(hexColor.substring(1), 16);
+
+                    image.setRGB(biomeKey, y, rgb);
+                }
             }
 
             // Write the modified image back to byte array

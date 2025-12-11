@@ -5,12 +5,12 @@ import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.services.ResourcePackService;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Hyperlink;
+import javafx.scene.control.*;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
 import java.awt.*;
@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.MissingResourceException;
 import java.util.function.Consumer;
 
 /**
@@ -77,6 +78,21 @@ public class FileManagementController {
     }
 
     /**
+     * Opens a file chooser dialog to select a folder and loads the selected resource pack.
+     */
+    @FXML
+    public void onOpenFolder(){
+
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("Select Resource Pack Folder");
+
+        var folder = chooser.showDialog(null);
+        if (folder != null) {
+            loadResourcePack(folder.toPath(), false);
+        }
+    }
+
+    /**
      * Loads a resource pack from the specified file path.
      *
      * @param filePath The path to the resource pack file.
@@ -87,7 +103,23 @@ public class FileManagementController {
         ArdaBiomesEditor.LOGGER.info("Loading resource pack {}", filePath.getFileName());
         ArdaBiomesEditor.CONFIG.addRecentFile(filePath.toAbsolutePath().toString());
 
-        resourcePackService.readResourcePack(filePath);
+        try {
+
+            resourcePackService.readResourcePack(filePath);
+        } catch (MissingResourceException mre){
+
+            showErrorPopup(filePath,
+                    I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error_title"),
+                    I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error", filePath.toString()),
+                    I18nService.get("ardabiomeseditor.filmanagement.error.missing_directory"));
+
+        } catch (IOException ioe) {
+
+            showErrorPopup(filePath,
+                    I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error_title"),
+                    I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error", filePath.toString()),
+                    I18nService.get("ardabiomeseditor.filmanagement.error.rp_io_loading_error"));
+        }
 
         Text editingText = new Text("Editing ");
         editingText.setStyle("-fx-font-weight: bold;");
@@ -104,6 +136,18 @@ public class FileManagementController {
         }
 
         if (onFileLoadedCallback != null) onFileLoadedCallback.accept(filePath);
+    }
+
+    private static void showErrorPopup(Path filePath, String title, String header, String content) {
+
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+
+        alert.getButtonTypes().setAll(new ButtonType(I18nService.get("ardabiomeseditor.generic.ok")));
+
+        alert.showAndWait();
     }
 
     /**

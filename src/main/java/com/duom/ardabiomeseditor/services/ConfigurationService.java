@@ -141,8 +141,9 @@ public class ConfigurationService {
 
         if (recentFiles.size() > configuration.getMaxRecentFiles()) {
             recentFiles = recentFiles.subList(0, configuration.getMaxRecentFiles());
-            configuration.setRecentFiles(recentFiles);
         }
+        configuration.setRecentFiles(recentFiles);
+        saveConfig(configuration);
 
         validateRecentFiles();
     }

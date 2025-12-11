@@ -4,3 +4,8 @@
     -fx-line-spacing: -5px;
     -fx-cursor: hand;
   }
+  .table-view .column-header .label {
+      -fx-font-family: "System";
+      -fx-font-weight: bold;
+      -fx-font-size: 12pt;
+  }

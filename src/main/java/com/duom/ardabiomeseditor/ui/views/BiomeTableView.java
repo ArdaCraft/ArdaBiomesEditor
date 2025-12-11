@@ -7,18 +7,13 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
+import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
-import javafx.scene.control.Label;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -37,7 +32,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     private int biomeKey;
 
     private BiConsumer<Integer, BiomeTableClickEvent> clickHandler;
-
+    private List<String> currentColumnOrder = new ArrayList<>();
     private final BiomeTableViewSelectionModel<ObservableList<ColorData>> biomeTableViewSelectionModel;
 
     /**
@@ -71,6 +66,11 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         Label placeholder = new Label(I18nService.get("ardabiomeseditor.biometableview.no_data"));
         placeholder.getStyleClass().add("text-muted");
         setPlaceholder(placeholder);
+
+        getColumns().addListener((javafx.collections.ListChangeListener.Change<? extends TableColumn<ObservableList<ColorData>, ?>> change) -> {
+            while (change.next())
+                reorderRowData();
+        });
     }
 
     /**
@@ -120,8 +120,9 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     private void createColumns(List<String> headers) {
 
         getColumns().add(createIndexColumn());
-
         setFixedCellSize(-1);
+
+        currentColumnOrder= new ArrayList<>(headers);
 
         for (int idx = 0; idx < headers.size(); idx++) {
 
@@ -159,37 +160,18 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     private TableColumn<ObservableList<ColorData>, String> createColumn(String header, int columnIndex) {
 
         TableColumn<ObservableList<ColorData>, String> column = new TableColumn<>();
-        column.setReorderable(false);
-
+        column.setReorderable(true);
         column.setUserData(header);
 
         Text headerText = new Text(formatVerticalHeaderString(header));
         headerText.setTextAlignment(TextAlignment.CENTER);
 
         StackPane headerGroup = new StackPane(headerText);
-        updateHeaderStyle(headerGroup, columnIndex);
+        updateHeaderStyle(headerGroup, column);
 
         headerGroup.setOnMouseClicked(mouseEvent -> {
-            if (mouseEvent.isShiftDown()) {
-
-                 if (biomeTableViewSelectionModel.isColumnSelected(columnIndex)) {
-
-                    biomeTableViewSelectionModel.deselectColumn(columnIndex);
-                    updateAllHeaders();
-
-                    if (clickHandler != null)
-                        clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, ""));
-                } else {
-
-                     selectColumn(columnIndex);
-                     updateAllHeaders();
-                 }
-            } else {
-                // Normal selection
-                biomeTableViewSelectionModel.clearSelection();
-                selectColumn(columnIndex);
-            }
-            updateAllHeaders();
+            String modifierName = (String) column.getUserData();
+            handleTableHeaderMouseEvent(modifierName, mouseEvent);
         });
         column.setGraphic(headerGroup);
 
@@ -197,9 +179,86 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         column.setMinWidth(CELL_WIDTH);
         column.setSortable(false);
 
-        column.setCellValueFactory(param -> param.getValue().get(columnIndex).currentColorProperty());
-        column.setCellFactory(col -> createColorCell(columnIndex));
+        column.setCellValueFactory(param -> {
+            String modifierName = (String) column.getUserData();
+
+            // Access the entire row data
+            ObservableList<ColorData> row = param.getValue();
+
+            // Find the correct data index based on modifier name
+            int dataIndex = getColumns().stream()
+                    .skip(1) // Skip the index column
+                    .map(col -> (String) col.getUserData())
+                    .filter(Objects::nonNull)
+                    .toList()
+                    .indexOf(modifierName);
+
+            if (dataIndex >= 0 && dataIndex < row.size()) {
+                return row.get(dataIndex).currentColorProperty();
+            }
+
+            return new SimpleStringProperty("");
+        });
+
+        column.setCellFactory(col -> createColorCell(column));
         return column;
+    }
+
+    private void handleTableHeaderMouseEvent(String modifierName, MouseEvent mouseEvent) {
+
+        if (mouseEvent.isControlDown()) {
+
+            if (biomeTableViewSelectionModel.isColumnSelected(modifierName)) {
+
+                biomeTableViewSelectionModel.deselectColumn(modifierName);
+                updateAllHeaders();
+
+                if (clickHandler != null)
+                    clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, ""));
+            } else {
+
+                selectColumn(modifierName);
+                updateAllHeaders();
+            }
+        } else if (mouseEvent.isShiftDown()) {
+/* FIXME
+            Set<TablePosition<ObservableList<ColorData>, ?>> selectedColumns =  biomeTableViewSelectionModel.getSelectedColumns();
+            if (!selectedColumns.isEmpty()) {
+                // Extract column indices from TablePosition set
+                Set<Integer> columnIndices = selectedColumns.stream()
+                        .map(TablePosition::getColumn)
+                        .collect(Collectors.toSet());
+
+                // Get the minimum column index as anchor
+                int anchorColumn = columnIndices.stream()
+                        .min(Integer::compareTo)
+                        .orElse(columnIndex);
+
+                // Select range between anchor and clicked column
+                int start = Math.min(anchorColumn, columnIndex);
+                int end = Math.max(anchorColumn, columnIndex);
+
+                for (int i = start; i <= end; i++) {
+                    if (!biomeTableViewSelectionModel.isColumnSelected(i)) {
+                        biomeTableViewSelectionModel.selectColumn(i);
+                    }
+                }
+
+                // Build formatted headers string
+                String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumnIndices().stream()
+                        .map(colIdx -> formatHeaderString((String) getColumns().get(colIdx + 1).getUserData()))
+                        .collect(Collectors.joining(", "));
+
+                if (clickHandler != null)
+                    clickHandler.accept(columnIndex, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
+            }*/
+
+        } else {
+            // Normal selection
+            biomeTableViewSelectionModel.clearSelection();
+            selectColumn(modifierName);
+        }
+        updateAllHeaders();
     }
 
     /**
@@ -233,14 +292,15 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
      * Updates the style of a column header based on its selection state.
      *
      * @param headerContainer The container for the header.
-     * @param columnIndex     The index of the column.
+     * @param column          The column.
      */
-    private void updateHeaderStyle(StackPane headerContainer, int columnIndex) {
+    private void updateHeaderStyle(StackPane headerContainer, TableColumn<ObservableList<ColorData>, ?> column) {
 
         var parentNode = headerContainer.getParent();
 
         if (parentNode != null) {
-            if (biomeTableViewSelectionModel.isColumnSelected(columnIndex)) {
+
+            if (biomeTableViewSelectionModel.isColumnSelected((String) column.getUserData())) {
                 parentNode.setStyle("-fx-cursor: hand; -fx-background-color: " + HIGHLIGHT_COLOR + ";");
 
                 if (!headerContainer.getChildren().isEmpty() && headerContainer.getChildren().getFirst() instanceof Text text) {
@@ -261,12 +321,12 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
      * Updates the styles of all column headers in the table.
      */
     private void updateAllHeaders() {
-        for (int i = 1; i < getColumns().size(); i++) { // Start at 1 to skip index column
+        for (int i = 1; i < getColumns().size(); i++) {
 
             TableColumn<ObservableList<ColorData>, ?> column = getColumns().get(i);
 
             if (column.getGraphic() instanceof StackPane headerContainer) {
-                updateHeaderStyle(headerContainer, i - 1);
+                updateHeaderStyle(headerContainer, column);
             }
         }
     }
@@ -274,10 +334,10 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     /**
      * Creates a custom TableCell for displaying color data.
      *
-     * @param columnIndex The index of the column for which the cell is created.
+     * @param column The column for which the cell is created.
      * @return The created TableCell.
      */
-    private TableCell<ObservableList<ColorData>, String> createColorCell(int columnIndex) {
+    private TableCell<ObservableList<ColorData>, String> createColorCell(TableColumn<ObservableList<ColorData>, String> column) {
 
         TableCell<ObservableList<ColorData>, String> cell = new TableCell<>() {
             private final Button colorBox = new Button();
@@ -289,15 +349,16 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
                     if (value != null && clickHandler != null) {
 
-                        if (biomeTableViewSelectionModel.isSelected(getIndex(), getColumns().get(columnIndex))) {
+
+                        if (biomeTableViewSelectionModel.isSelected(getIndex(), column)) {
                             biomeTableViewSelectionModel.clearSelection();
 
                         } else {
 
-                            biomeTableViewSelectionModel.selectCell(getIndex(), columnIndex);
+                            biomeTableViewSelectionModel.selectCell(getIndex(), column);
 
-                            var formatedHeader = formatHeaderString((String) getColumns().get(columnIndex + 1).getUserData());
-                            clickHandler.accept(columnIndex, new BiomeTableClickEvent(BiomeTableClickEventType.CELL, formatedHeader));
+                            var formatedHeader = formatHeaderString((String) column.getUserData());
+                            clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.CELL, formatedHeader));
                         }
 
                         updateAllHeaders();
@@ -320,10 +381,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
                     colorBox.setStyle("-fx-background-color: " + item + ";");
                     setGraphic(colorBox);
 
-                    var rowIndex = getIndex();
-
-                    if (biomeTableViewSelectionModel.isSelected(rowIndex, getColumns().get(columnIndex))) {
-
+                    if (biomeTableViewSelectionModel.isSelected(getIndex(), column)) {
                         setStyle("-fx-background-color: " + HIGHLIGHT_COLOR + "; -fx-text-fill: " + HIGHLIGHT_TEXT_COLOR + ";");
                     } else {
                         setStyle("");
@@ -366,19 +424,19 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     /**
      * Selects a column in the table and triggers the click handler.
      *
-     * @param columnIndex The index of the column to select.
+     * @param modifierName The modifier represented by the column.
      */
-    private void selectColumn(int columnIndex) {
+    private void selectColumn(String modifierName) {
 
-        biomeTableViewSelectionModel.selectColumn(columnIndex);
+        biomeTableViewSelectionModel.selectColumn(modifierName);
 
         refresh();
 
-        String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumnIndices().stream()
-                .map(colIdx -> formatHeaderString((String) getColumns().get(colIdx + 1).getUserData()))
+        String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumns().stream()
+                .map(this::formatHeaderString)
                 .collect(Collectors.joining(", "));
 
-        if (clickHandler != null) clickHandler.accept(columnIndex, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
+        if (clickHandler != null) clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
     }
 
     /**
@@ -408,15 +466,6 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         }
 
         return false;
-    }
-
-    /**
-     * Retrieves the custom selection model for the biome table view.
-     *
-     * @return The BiomeTableViewSelectionModel instance.
-     */
-    public BiomeTableViewSelectionModel<ObservableList<ColorData>> getBiomeTableViewSelectionModel() {
-        return biomeTableViewSelectionModel;
     }
 
     /**
@@ -454,13 +503,15 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
                 // Collect all modified ColorData in this column
                 // Adjust index for items list (which does not include index column)
-                int finalColumnIndex = columnIndex - 1;
+                int dataColumnIndex = columnIndex - 1;
                 List<ColorData> modifiedColors = getItems().stream()
-                        .map(row -> row.get(finalColumnIndex))
-                        .filter(ColorData::isModified)
+                        .map(row -> row.get(dataColumnIndex))
+                        .map(colorData -> colorData.isModified() ? colorData : null)
                         .toList();
 
-                if (!modifiedColors.isEmpty())
+                boolean hasAnyModified = modifiedColors.stream().anyMatch(Objects::nonNull);
+
+                if (!modifiedColors.isEmpty() && hasAnyModified)
                     changes.put(columnName, modifiedColors);
 
             }
@@ -470,24 +521,42 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     }
 
     /**
-     * Retrieves the ColorData at the specified row and column indices.
-     *
-     * @param rowIndex    The row index of the cell.
-     * @param columnIndex The column index of the cell.
-     * @return The ColorData at the specified cell, or null if indices are out of bounds.
+     * Reorders the data in each row to match the current visual column order.
+     * This ensures data stays aligned with columns after drag-and-drop reordering.
      */
-    public ColorData getCellValue(int rowIndex, int columnIndex) {
+    private void reorderRowData() {
+        // Returns the column order as it is currently displayed
+        List<String> newColumnOrder = getColumns().stream()
+                .skip(1) // Skip index column
+                .map(col -> (String) col.getUserData())
+                .filter(Objects::nonNull)
+                .toList();
 
-        if (rowIndex >= 0 && rowIndex < getItems().size()) {
-
-            ObservableList<ColorData> row = getItems().get(rowIndex);
-
-            if (columnIndex >= 0 && columnIndex < row.size()) {
-
-                return row.get(columnIndex);
-            }
+        // If order hasn't changed or we don't have original order, skip
+        if (currentColumnOrder.isEmpty() || currentColumnOrder.equals(newColumnOrder)) {
+            return;
         }
-        return null;
+
+        // Reorder each row's data to match the new column order
+        for (ObservableList<ColorData> row : getItems()) {
+
+            Map<String, ColorData> dataMap = new HashMap<>();
+
+            for (int i = 0; i < row.size() && i < currentColumnOrder.size(); i++) {
+                dataMap.put(currentColumnOrder.get(i), row.get(i));
+            }
+
+            // Rebuild the row using the new column order
+            ObservableList<ColorData> reorderedRow = FXCollections.observableArrayList();
+            for (String modifierName : newColumnOrder) {
+                ColorData colorData = dataMap.get(modifierName);
+                reorderedRow.add(colorData != null ? colorData : new ColorData(""));
+            }
+
+            row.setAll(reorderedRow);
+        }
+
+        currentColumnOrder = new ArrayList<>(newColumnOrder);
     }
 
     /**
@@ -513,5 +582,26 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
      */
     public int getBiomeKey() {
         return biomeKey;
+    }
+
+    public List<ColorData> getSelectedCells(){
+
+        List<ColorData> selectedColors = new ArrayList<>();
+        var selectedCells = biomeTableViewSelectionModel.getSelectedCells();
+
+        for (TablePosition position : selectedCells) {
+
+            var rowData = getItems().get(position.getRow());
+            var cellData = rowData.get(position.getColumn() - 1 );
+
+            selectedColors.add(cellData);
+        }
+
+        return selectedColors;
+    }
+
+    public Set<String> getSelectedColumns(){
+
+        return biomeTableViewSelectionModel.getSelectedColumns();
     }
 }

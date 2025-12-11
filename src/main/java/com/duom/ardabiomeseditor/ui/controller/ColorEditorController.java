@@ -1,10 +1,11 @@
 package com.duom.ardabiomeseditor.ui.controller;
 
-import com.duom.ardabiomeseditor.model.ColorData;
 import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
 import javafx.fxml.FXML;
-import javafx.scene.control.*;
+import javafx.scene.control.ColorPicker;
+import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
@@ -83,18 +84,17 @@ public class ColorEditorController {
     @FXML
     public void onColorPickerChange() {
         Color newColor = colorPicker.getValue();
-        var selectedCells = biomeTableView.getBiomeTableViewSelectionModel().getSelectedCells();
+        var selectedCells = biomeTableView.getSelectedCells();
 
         if (!selectedCells.isEmpty() && newColor != null) {
-            var cellPosition = selectedCells.getFirst();
-            ColorData colorData = biomeTableView.getCellValue(cellPosition.getRow(), cellPosition.getColumn());
+            var cell = selectedCells.getFirst();
 
             String hexColor = String.format("#%02X%02X%02X",
                     (int)(newColor.getRed() * 255),
                     (int)(newColor.getGreen() * 255),
                     (int)(newColor.getBlue() * 255));
 
-            colorData.setCurrentColor(hexColor);
+            cell.setCurrentColor(hexColor);
             biomeTableView.refresh();
         }
     }
@@ -108,13 +108,12 @@ public class ColorEditorController {
         onResetHSL();
 
         if (BiomeTableView.BiomeTableClickEventType.CELL == event.type()) {
-            var selectedCells = biomeTableView.getBiomeTableViewSelectionModel().getSelectedCells();
+            var selectedCells = biomeTableView.getSelectedCells();
 
             if (selectedCells.size() == 1) {
-                var cellPosition = selectedCells.getFirst();
+                var cell = selectedCells.getFirst();
                 cellColorSettingsHeader.setText(I18nService.get("ardabiomeseditor.biometableview.single.cell.select.label"));
-                ColorData color = biomeTableView.getCellValue(cellPosition.getRow(), cellPosition.getColumn());
-                colorPicker.setValue(Color.web(color.getCurrentColor()));
+                colorPicker.setValue(Color.web(cell.getCurrentColor()));
 
                 cellColorSettingsSubtitle.setText(event.eventData());
                 cellColorSettings.setVisible(true);
@@ -123,7 +122,7 @@ public class ColorEditorController {
                 columnHsvSettingsHeader.setVisible(false);
             }
         } else if (BiomeTableView.BiomeTableClickEventType.HEADER == event.type()) {
-            var selectedColumns = biomeTableView.getBiomeTableViewSelectionModel().getSelectedColumns();
+            var selectedColumns = biomeTableView.getSelectedColumns();
 
             columnHsvSettingsHeader.setText(I18nService.get("ardabiomeseditor.biometableview.column.adjustments.header"));
             columnHsvSettingsSubtitle.setText(event.eventData());
@@ -133,13 +132,17 @@ public class ColorEditorController {
             cellColorSettings.setVisible(false);
             cellColorSettingsHeader.setVisible(false);
         } else {
-            columnHsvSettings.setVisible(false);
-            columnHsvSettingsHeader.setVisible(false);
-            cellColorSettings.setVisible(false);
-            cellColorSettingsHeader.setVisible(false);
+            hideUi();
         }
 
         biomeTableView.refresh();
+    }
+
+    private void hideUi() {
+        columnHsvSettings.setVisible(false);
+        columnHsvSettingsHeader.setVisible(false);
+        cellColorSettings.setVisible(false);
+        cellColorSettingsHeader.setVisible(false);
     }
 
     /**
@@ -150,9 +153,9 @@ public class ColorEditorController {
         double satShift = saturationSlider.getValue() / 100.0;
         double lightShift = lightnessSlider.getValue() / 100.0;
 
-        var selectedColumns = biomeTableView.getBiomeTableViewSelectionModel().getSelectedColumns();
+        var selectedCells = biomeTableView.getSelectedCells();
 
-        selectedColumns.forEach(pos -> biomeTableView.getItems().get(pos.getRow()).get(pos.getColumn()).adjustHSL(hueShift,satShift,lightShift));
+        selectedCells.forEach(cell -> cell.adjustHSL(hueShift,satShift,lightShift));
 
         biomeTableView.refresh();
     }
@@ -162,6 +165,7 @@ public class ColorEditorController {
      */
     @FXML
     private void onClearSelection() {
+        hideUi();
         biomeTableView.getSelectionModel().clearSelection();
         biomeTableView.refresh();
     }

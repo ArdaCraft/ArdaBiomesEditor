@@ -10,7 +10,8 @@
     <left>
         <MenuBar>
             <Menu text="File">
-                <MenuItem text="Open..." onAction="#onOpenZip" />
+                <MenuItem text="Open File..." onAction="#onOpenZip" />
+                <MenuItem text="Open Folder..." onAction="#onOpenFolder" />
                 <Menu fx:id="recentFilesMenu" text="Open Recent">
                     <MenuItem text="No recent files" disable="true" />
                 </Menu>
