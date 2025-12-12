@@ -35,6 +35,7 @@ public class FileManagementController {
     private Consumer<Path> onFileLoadedCallback;
     private Consumer<Runnable> saveCallback;
     private Consumer<Runnable> menuExitCallback;
+    private Consumer<Void> showAllCallback;
 
     /**
      * Initializes the controller. Updates the recent files menu.
@@ -222,6 +223,11 @@ public class FileManagementController {
         }
     }
 
+    @FXML
+    private void onShowAll(){
+        showAllCallback.accept(null);
+    }
+
     /**
      * Saves biome edits by invoking the save callback.
      */
@@ -277,5 +283,14 @@ public class FileManagementController {
      */
     public void setMenuExitCallback(Consumer<Runnable> menuExitCallback) {
         this.menuExitCallback = menuExitCallback;
+    }
+
+    /**
+     * Sets the callback to be executed when showing all biomes.
+     *
+     * @param showAllCallback The show all callback function.
+     */
+    public void setShowAllCallback(Consumer<Void> showAllCallback) {
+        this.showAllCallback = showAllCallback;
     }
 }

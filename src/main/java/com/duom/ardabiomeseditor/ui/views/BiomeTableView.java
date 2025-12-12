@@ -2,6 +2,7 @@ package com.duom.ardabiomeseditor.ui.views;
 
 import com.duom.ardabiomeseditor.model.ColorData;
 import com.duom.ardabiomeseditor.services.I18nService;
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -19,6 +20,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import javafx.util.Duration;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -43,6 +45,8 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     private final BiomeTableViewSelectionModel<ObservableList<ColorData>> biomeTableViewSelectionModel;
     private ContextMenu columnContextMenu;
     private VBox indexDisplayContainer;
+    private double zoomFactor = 1.0;
+    private PauseTransition debounceTimeline;
 
     /**
      * Record representing a click event in the biome table.
@@ -76,6 +80,8 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         Label placeholder = new Label(I18nService.get("ardabiomeseditor.biometableview.no_data"));
         placeholder.getStyleClass().add("text-muted");
         setPlaceholder(placeholder);
+        initKeyboardListener();
+        initZoomListener();
     }
 
     /**
@@ -87,6 +93,24 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
         if (cssResource != null)
             getStylesheets().add(cssResource.toExternalForm());
+    }
+
+    private void initKeyboardListener() {
+        setOnKeyPressed(event -> {
+            if (event.isControlDown()) {
+
+                switch (event.getCode()) {
+                    case A:
+                        event.consume();
+                        selectAllColumns();
+                        break;
+                    case D:
+                        event.consume();
+                        deselectAllColumns();
+                        break;
+                }
+            }
+        });
     }
 
     /**
@@ -116,22 +140,29 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         indexDisplayContainer.getChildren().clear();
         indexDisplayContainer.setFillWidth(true);
 
-        var headerHeight = 0.0;
-        for (Node node : lookupAll(".column-header")) {
-            if (node instanceof Region headerRegion) {
-                headerHeight= headerRegion.getHeight();
-            }
-        }
+        Region headerRegion = (Region) lookupAll(".column-header")
+                .stream()
+                .filter(n -> n instanceof Region)
+                .filter(n -> ((Region) n).getHeight() > 0)
+                .findFirst()
+                .orElse(new Region());
+
+        indexDisplayContainer.minWidthProperty().bind(headerRegion.widthProperty());
+        indexDisplayContainer.prefWidthProperty().bind(headerRegion.widthProperty());
+        indexDisplayContainer.maxWidthProperty().bind(headerRegion.widthProperty());
 
         // Create fixed header label
         Label headerLabel = new Label("#");
-        headerLabel.setPrefHeight(headerHeight); // Adjust to match your table header height
-        headerLabel.setMinHeight(headerHeight);
-        headerLabel.setMaxHeight(headerHeight);
+
+        headerLabel.minHeightProperty().bind(headerRegion.heightProperty());
+        headerLabel.prefHeightProperty().bind(headerRegion.heightProperty());
+        headerLabel.maxHeightProperty().bind(headerRegion.heightProperty());
+
         headerLabel.setAlignment(Pos.CENTER);
-        headerLabel.setMinWidth(indexDisplayContainer.getMinWidth());
-        headerLabel.setPrefWidth(indexDisplayContainer.getPrefWidth());
-        headerLabel.setMaxWidth(indexDisplayContainer.getMaxWidth());
+        headerLabel.minWidthProperty().bind(headerRegion.widthProperty());
+        headerLabel.prefWidthProperty().bind(headerRegion.widthProperty());
+        headerLabel.maxWidthProperty().bind(headerRegion.widthProperty());
+
         headerLabel.setStyle("-fx-background-color: #161b22; -fx-border-color: #0d1117; -fx-border-width: 0 0 1 0; -fx-font-weight: bold;");
 
         // Create container for scrollable index labels
@@ -144,14 +175,16 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
             Label indexLabel = new Label(String.valueOf(i));
             indexLabel.setPrefHeight(CELL_WIDTH - 1);
             indexLabel.setMinHeight(CELL_WIDTH - 1);
-            indexLabel.setMinWidth(indexDisplayContainer.getMinWidth());
-            indexLabel.setPrefWidth(indexDisplayContainer.getPrefWidth());
-            indexLabel.setMaxWidth(indexDisplayContainer.getMaxWidth());
+
+            indexLabel.minWidthProperty().bind(headerRegion.widthProperty());
+            indexLabel.prefWidthProperty().bind(headerRegion.widthProperty());
+            indexLabel.maxWidthProperty().bind(headerRegion.widthProperty());
+
             indexLabel.setAlignment(Pos.CENTER);
             indexLabel.setStyle(
                     "-fx-background-color: #0d1117; " +
-                            "-fx-border-color: #292f35; " +
-                            "-fx-border-width: 1 0 1 0;"
+                    "-fx-border-color: #292f35; " +
+                    "-fx-border-width: 1 0 1 0;"
             );
             scrollableContent.getChildren().add(indexLabel);
         }
@@ -212,15 +245,13 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         for (TableColumn<ObservableList<ColorData>, ?> column : getColumns()) {
 
             // Skip hidden columns
-            if (!column.isVisible()) {
-                continue;
-            }
+            if (!column.isVisible()) continue;
 
             currentX += column.getWidth();
-            if (x <= currentX) {
-                return column;
-            }
+
+            if (x <= currentX) return column;
         }
+
         return null;
     }
 
@@ -233,6 +264,39 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         super.refresh();
     }
 
+    private void initZoomListener(){
+
+        debounceTimeline = new PauseTransition(Duration.millis(50));
+        debounceTimeline.setOnFinished(event -> applyContentScale());
+
+        setOnScroll(event -> {
+            if (event.isControlDown()) {
+                event.consume();
+
+                double deltaY = event.getDeltaY();
+
+                if (deltaY > 0)  zoomFactor = Math.min(2.0, zoomFactor + 0.1);
+                else if (deltaY < 0) zoomFactor = Math.max(0.1, zoomFactor - 0.1);
+
+                debounceTimeline.play();
+            }
+        });
+    }
+
+    private void applyContentScale() {
+
+        // Scale cell content by adjusting row height
+        setFixedCellSize(CELL_WIDTH * zoomFactor);
+
+        // Scale column widths
+        for (TableColumn<ObservableList<ColorData>, ?> column : getColumns()) {
+            column.setPrefWidth(CELL_WIDTH * zoomFactor);
+            column.setMinWidth(CELL_WIDTH * zoomFactor);
+            column.setMaxWidth(CELL_WIDTH * zoomFactor);
+        }
+
+        refresh();
+    }
 
     /**
      * Updates the context menu with Hide and Show All options.
@@ -280,17 +344,12 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
         // Show All menu item
         MenuItem showAllItem = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.show_all_columns"));
-        showAllItem.setOnAction(e -> {
-            for (int i = 0; i < getColumns().size(); i++) {
-                getColumns().get(i).setVisible(true);
-            }
-        });
+        showAllItem.setOnAction(e -> {showAllColumns(null);});
 
         // Sort Columns menu item
         MenuItem sortColumnsItem = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.sort_columns"));
         sortColumnsItem.setOnAction(e -> {
 
-            // Get all columns except the index column
             List<TableColumn<ObservableList<ColorData>, ?>> columnsToSort = new ArrayList<>(getColumns());
 
             // Sort columns alphabetically by their userData (modifier name)
@@ -308,7 +367,15 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
             refresh();
         });
 
-        columnContextMenu.getItems().addAll(hideItem, showAllItem, sortColumnsItem);
+        MenuItem resetZoom = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.reset_zoom"));
+        resetZoom.setOnAction(e -> {
+
+            zoomFactor = 1;
+            applyContentScale();
+            refresh();
+        });
+
+        columnContextMenu.getItems().addAll(hideItem, showAllItem, sortColumnsItem, resetZoom);
     }
 
     /**
@@ -319,6 +386,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
      */
     public void configure(int biomeKey, Map<String, List<String>> colorMappings) {
 
+        this.zoomFactor = 1;
         this.biomeKey = biomeKey;
         this.biomeTableViewSelectionModel.clearSelection();
         List<String> modifierNames = colorMappings.keySet().stream().sorted().toList();
@@ -389,6 +457,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
         column.setPrefWidth(CELL_WIDTH);
         column.setMinWidth(CELL_WIDTH);
+        column.setMaxWidth(CELL_WIDTH);
         column.setSortable(false);
 
         column.setCellValueFactory(param -> {
@@ -415,66 +484,136 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         return column;
     }
 
+    /**
+     * Handles mouse events on the table header for column selection.
+     *
+     * @param modifierName The modifier represented by the column.
+     * @param mouseEvent   The mouse event triggered on the header.
+     */
     private void handleTableHeaderMouseEvent(String modifierName, MouseEvent mouseEvent) {
 
         if (mouseEvent.getButton() == MouseButton.SECONDARY) return;
 
-        if (mouseEvent.isControlDown()) {
+        // CTRL Click
+        if (mouseEvent.isControlDown())
+            selectColumnAppend(modifierName);
 
-            if (biomeTableViewSelectionModel.isColumnSelected(modifierName)) {
+        // Shift Click
+        else if (mouseEvent.isShiftDown())
+            selectColumnRange(modifierName);
 
-                biomeTableViewSelectionModel.deselectColumn(modifierName);
-                updateAllHeaders();
+        // Regular Click
+        else
+            selectSingleColumn(modifierName);
 
-                if (clickHandler != null)
-                    clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, ""));
-            } else {
-
-                selectColumn(modifierName);
-                updateAllHeaders();
-            }
-        } else if (mouseEvent.isShiftDown()) {
-
-            Set<String> selectedColumnNames = biomeTableViewSelectionModel.getSelectedColumns();
-
-            if (!selectedColumnNames.isEmpty()) {
-
-                // Find the anchor column name (first selected column)
-                String anchorColumnName = selectedColumnNames.stream()
-                        .findFirst()
-                        .orElse(null);
-
-                // Get column indices for anchor and clicked column
-                int anchorIndex = getColumnIndex(anchorColumnName);
-                int clickedIndex = getColumnIndex(modifierName);
-
-                // Select range between anchor and clicked column
-                int start = Math.min(anchorIndex, clickedIndex);
-                int end = Math.max(anchorIndex, clickedIndex);
-
-                for (int i = start; i <= end; i++) {
-                    String columnName = (String) getColumns().get(i + 1).getUserData();
-                    if (!biomeTableViewSelectionModel.isColumnSelected(columnName)) {
-                        biomeTableViewSelectionModel.selectColumn(columnName);
-                    }
-                }
-
-                refresh();
-
-                String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumns().stream()
-                        .map(this::formatHeaderString)
-                        .collect(Collectors.joining(", "));
-
-                if (clickHandler != null)
-                    clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
-            }
-
-        } else {
-            // Normal selection
-            biomeTableViewSelectionModel.clearSelection();
-            selectColumn(modifierName);
-        }
         updateAllHeaders();
+    }
+
+    /**
+     * Selects a single table column.
+     * @param modifierName The modifier represented by the clicked column.
+     */
+    private void selectSingleColumn(String modifierName) {
+        // Normal selection
+        biomeTableViewSelectionModel.clearSelection();
+        selectColumn(modifierName);
+    }
+
+    /**
+     * Selects a range of columns between the anchor and the clicked column.
+     * @param modifierName The modifier represented by the clicked column.
+     */
+    private void selectColumnRange(String modifierName) {
+        Set<String> selectedColumnNames = biomeTableViewSelectionModel.getSelectedColumns();
+
+        if (!selectedColumnNames.isEmpty()) {
+
+            // Find the anchor column name (first selected column)
+            String anchorColumnName = selectedColumnNames.stream()
+                    .findFirst()
+                    .orElse(null);
+
+            // Get column indices for anchor and clicked column
+            int anchorIndex = getColumnIndex(anchorColumnName);
+            int clickedIndex = getColumnIndex(modifierName);
+
+            // Select range between anchor and clicked column
+            int start = Math.min(anchorIndex, clickedIndex);
+            int end = Math.max(anchorIndex, clickedIndex);
+
+            for (int i = start; i <= end; i++) {
+                String columnName = (String) getColumns().get(i + 1).getUserData();
+                if (!biomeTableViewSelectionModel.isColumnSelected(columnName))
+                    biomeTableViewSelectionModel.selectColumn(columnName);
+            }
+
+            refresh();
+
+            String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumns().stream()
+                    .map(this::formatHeaderString)
+                    .collect(Collectors.joining(", "));
+
+            if (clickHandler != null)
+                clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
+        }
+    }
+
+    /**
+     * Appends or removes a column from the current selection.
+     *
+     * @param modifierName The modifier name of the column.
+     */
+    private void selectColumnAppend(String modifierName) {
+        if (biomeTableViewSelectionModel.isColumnSelected(modifierName)) {
+
+            biomeTableViewSelectionModel.deselectColumn(modifierName);
+            updateAllHeaders();
+
+            if (clickHandler != null)
+                clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, ""));
+        } else {
+
+            selectColumn(modifierName);
+            updateAllHeaders();
+        }
+    }
+
+    /**
+     * Selects all columns in the table.
+     */
+    private void selectAllColumns() {
+        biomeTableViewSelectionModel.clearSelection();
+
+        for (TableColumn<ObservableList<ColorData>, ?> column : getColumns()) {
+            String modifierName = (String) column.getUserData();
+            if (modifierName != null) {
+                biomeTableViewSelectionModel.selectColumn(modifierName);
+            }
+        }
+
+        updateAllHeaders();
+        refresh();
+
+        String formattedHeaders = biomeTableViewSelectionModel.getSelectedColumns().stream()
+                .map(this::formatHeaderString)
+                .collect(Collectors.joining(", "));
+
+        if (clickHandler != null) {
+            clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, formattedHeaders));
+        }
+    }
+
+    /**
+     * Deselects all columns in the table.
+     */
+    private void deselectAllColumns() {
+        biomeTableViewSelectionModel.clearSelection();
+        updateAllHeaders();
+        refresh();
+
+        if (clickHandler != null) {
+            clickHandler.accept(-1, new BiomeTableClickEvent(BiomeTableClickEventType.HEADER, ""));
+        }
     }
 
     /**
@@ -516,18 +655,20 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
         if (parentNode != null) {
 
+            var textScale = String.format("-fx-font-size: %.2fpt;", 12 * zoomFactor);
+
             if (biomeTableViewSelectionModel.isColumnSelected((String) column.getUserData())) {
                 parentNode.setStyle("-fx-cursor: hand; -fx-background-color: " + HIGHLIGHT_COLOR + ";");
 
                 if (!headerContainer.getChildren().isEmpty() && headerContainer.getChildren().getFirst() instanceof Text text) {
-                    text.setStyle("-fx-fill: " + HIGHLIGHT_TEXT_COLOR + ";");
+                    text.setStyle("-fx-fill: " + HIGHLIGHT_TEXT_COLOR + ";" + textScale);
                 }
 
             } else {
                 parentNode.setStyle("-fx-cursor: hand;");
 
                 if (!headerContainer.getChildren().isEmpty() && headerContainer.getChildren().getFirst() instanceof Text text) {
-                    text.setStyle("");
+                    text.setStyle(textScale);
                 }
             }
         }
@@ -558,7 +699,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         TableCell<ObservableList<ColorData>, String> cell = new TableCell<>() {
             private final Button colorBox = new Button();
             {
-                colorBox.setPrefSize(CELL_WIDTH - 5, CELL_WIDTH - 5);
+                colorBox.setPrefSize((CELL_WIDTH - 5) * zoomFactor, (CELL_WIDTH - 5) * zoomFactor);
                 colorBox.setOnAction(e -> {
 
                     String value = getItem();
@@ -854,5 +995,16 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
     public void setIndexDisplayContainer(VBox indexColumnContainer) {
         this.indexDisplayContainer = indexColumnContainer;
+    }
+
+    /**
+     * Shows all columns in the table.
+     * @param unused A placeholder parameter (not used).
+     */
+    public void showAllColumns(Void unused) {
+
+        for (int i = 0; i < getColumns().size(); i++) {
+            getColumns().get(i).setVisible(true);
+        }
     }
 }

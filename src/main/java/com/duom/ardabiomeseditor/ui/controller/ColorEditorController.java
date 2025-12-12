@@ -3,6 +3,7 @@ package com.duom.ardabiomeseditor.ui.controller;
 import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
 import javafx.animation.PauseTransition;
+import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
@@ -35,7 +36,9 @@ public class ColorEditorController {
 
     private BiomeTableView biomeTableView;
     private Consumer<Runnable> saveCallback;
-
+    private ChangeListener<Number> hueListener;
+    private ChangeListener<Number> saturationListener;
+    private ChangeListener<Number> lightnessListener;
     private PauseTransition hslDebouncer;
 
     /**
@@ -50,23 +53,32 @@ public class ColorEditorController {
         hslDebouncer = new PauseTransition(Duration.millis(500));
         hslDebouncer.setOnFinished(event -> applyLiveHSLAdjustments());
 
-        hueSlider.valueProperty().addListener((obs, old, val) -> {
+        hueListener = (obs, old, val) -> {
             hueLabel.setText(String.format("%.0f°", val.doubleValue()));
             applyLiveHSLAdjustmentsImmediate();
             hslDebouncer.playFromStart();
-        });
+        };
 
-        saturationSlider.valueProperty().addListener((obs, old, val) -> {
+        saturationListener = (obs, old, val) -> {
             saturationLabel.setText(String.format("%.0f%%", val.doubleValue()));
             applyLiveHSLAdjustmentsImmediate();
             hslDebouncer.playFromStart();
-        });
+        };
 
-        lightnessSlider.valueProperty().addListener((obs, old, val) -> {
+        lightnessListener = (obs, old, val) -> {
             lightnessLabel.setText(String.format("%.0f%%", val.doubleValue()));
             applyLiveHSLAdjustmentsImmediate();
             hslDebouncer.playFromStart();
-        });
+        };
+
+        initHslSliderListeners();
+    }
+
+    private void initHslSliderListeners() {
+
+        hueSlider.valueProperty().addListener(hueListener);
+        saturationSlider.valueProperty().addListener(saturationListener);
+        lightnessSlider.valueProperty().addListener(lightnessListener);
     }
 
     /**
@@ -86,6 +98,22 @@ public class ColorEditorController {
         hueSlider.setValue(0);
         saturationSlider.setValue(0);
         lightnessSlider.setValue(0);
+    }
+
+    public void silentResetHsl(){
+
+        hueSlider.valueProperty().removeListener(hueListener);
+        saturationSlider.valueProperty().removeListener(saturationListener);
+        lightnessSlider.valueProperty().removeListener(lightnessListener);
+
+        onResetHSL();
+
+        initHslSliderListeners();
+    }
+
+    public void resetAndHideUi() {
+        onResetHSL();
+        hideUi();
     }
 
     /**
@@ -115,7 +143,8 @@ public class ColorEditorController {
      * @param event The BiomeTableClickEvent triggered by the table click.
      */
     public void handleTableClick(BiomeTableView.BiomeTableClickEvent event) {
-        onResetHSL();
+
+        silentResetHsl();
 
         if (BiomeTableView.BiomeTableClickEventType.CELL == event.type()) {
             var selectedCells = biomeTableView.getSelectedCells();

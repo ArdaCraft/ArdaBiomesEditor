@@ -19,6 +19,9 @@
                 <MenuItem text="Save" onAction="#onSaveBiomeEdits" />
                 <MenuItem text="Exit" onAction="#onExitApp" />
             </Menu>
+            <Menu text="View">
+                <MenuItem text="Show All" onAction="#onShowAll" />
+            </Menu>
             <Menu text="Help">
                 <MenuItem text="About" onAction="#onShowAboutPopup" />
                 <MenuItem text="Logs" onAction="#onOpenLogsFolder" />

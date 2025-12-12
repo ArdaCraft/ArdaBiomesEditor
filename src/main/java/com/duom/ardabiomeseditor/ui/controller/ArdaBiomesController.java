@@ -38,8 +38,6 @@ public class ArdaBiomesController {
     @FXML
     public void initialize() {
         ArdaBiomesEditor.LOGGER.info("Initializing controller GUI components");
-
-        // Initialize sub-controllers
         initializeSubControllers();
     }
 
@@ -60,6 +58,7 @@ public class ArdaBiomesController {
 
         fileManagementController.setResourcePackService(resourcePackService);
         fileManagementController.setOnFileLoadedCallback(path -> biomeSelectionController.loadBiomes());
+        fileManagementController.setShowAllCallback(biomeTableView::showAllColumns);
         fileManagementController.setSaveCallback(this::saveBiomeEdits);
         fileManagementController.setMenuExitCallback(this::onExitApplication);
     }
@@ -173,12 +172,18 @@ public class ArdaBiomesController {
             showUnsavedChangesDialog(selectionChange,
                     () -> {
                         biomeTableView.resetChanges();
+                        colorEditorController.resetAndHideUi();
                         selectionChange.run();
                     },
-                    () -> {biomeSelectionController.resetBiomeTableView();});
+                    () -> {
+                        biomeSelectionController.resetBiomeTableView();
+                        colorEditorController.resetAndHideUi();
+
+            });
 
         } else {
 
+            colorEditorController.resetAndHideUi();
             selectionChange.run();
         }
     }
