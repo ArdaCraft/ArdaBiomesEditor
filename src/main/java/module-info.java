@@ -10,6 +10,8 @@ module com.duom.ardabiomeseditor {
     requires com.google.gson;
     requires atlantafx.base;
     requires org.apache.logging.log4j;
+    requires javafx.graphics;
+    requires javafx.base;
 
     // allow FXMLLoader to access controller/view classes reflectively
     opens com.duom.ardabiomeseditor.ui.controller to javafx.fxml;

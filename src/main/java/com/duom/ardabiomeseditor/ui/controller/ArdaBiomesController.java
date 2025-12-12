@@ -24,6 +24,8 @@ public class ArdaBiomesController {
     @FXML private ProgressBar progressBar;
     @FXML private Label progressLabel;
 
+    @FXML private VBox indexColumnContainer;
+
     @FXML private ColorEditorController colorEditorController;
     @FXML private BiomeSelectorController biomeSelectionController;
     @FXML private FileManagementController fileManagementController;
@@ -48,7 +50,9 @@ public class ArdaBiomesController {
 
         colorEditorController.setBiomeTableView(biomeTableView);
         colorEditorController.setSaveCallback(this::saveBiomeEdits);
+
         biomeTableView.setClickHandler((col, event) -> colorEditorController.handleTableClick(event));
+        biomeTableView.setIndexDisplayContainer(indexColumnContainer);
 
         biomeSelectionController.resetBiomeTableView(biomeTableView);
         biomeSelectionController.setResourcePackService(resourcePackService);
@@ -65,6 +69,7 @@ public class ArdaBiomesController {
      * @param onSuccess The callback to execute after successfully saving the edits.
      */
     private void saveBiomeEdits(Runnable onSuccess) {
+
         ArdaBiomesEditor.LOGGER.info("Persisting biome edits");
 
         Map<String, List<ColorData>> colorChanges = biomeTableView.getAllColorChanges();

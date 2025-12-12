@@ -17,7 +17,10 @@
             <SplitPane dividerPositions="0.85">
                 <SplitPane dividerPositions="0.20">
                     <fx:include fx:id="biomeSelection" source="biomeSelector.fxml"/>
-                    <BiomeTableView fx:id="biomeTableView" />
+                    <HBox>
+                        <VBox fx:id="indexColumnContainer" minWidth="50" maxWidth="50"/>
+                        <BiomeTableView fx:id="biomeTableView" HBox.hgrow="ALWAYS"/>
+                    </HBox>
                 </SplitPane>
                 <fx:include fx:id="colorEditor" source="colorEditor.fxml"/>
             </SplitPane>

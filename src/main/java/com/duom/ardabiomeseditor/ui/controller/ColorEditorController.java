@@ -2,12 +2,14 @@ package com.duom.ardabiomeseditor.ui.controller;
 
 import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
+import javafx.animation.PauseTransition;
 import javafx.fxml.FXML;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.util.Duration;
 
 import java.util.function.Consumer;
 
@@ -34,6 +36,8 @@ public class ColorEditorController {
     private BiomeTableView biomeTableView;
     private Consumer<Runnable> saveCallback;
 
+    private PauseTransition hslDebouncer;
+
     /**
      * Initializes the controller. Sets up bindings and listeners for UI components.
      */
@@ -43,19 +47,25 @@ public class ColorEditorController {
         cellColorSettings.managedProperty().bind(cellColorSettings.visibleProperty());
         columnHsvSettings.managedProperty().bind(columnHsvSettings.visibleProperty());
 
+        hslDebouncer = new PauseTransition(Duration.millis(500));
+        hslDebouncer.setOnFinished(event -> applyLiveHSLAdjustments());
+
         hueSlider.valueProperty().addListener((obs, old, val) -> {
             hueLabel.setText(String.format("%.0f°", val.doubleValue()));
-            applyLiveHSLAdjustments();
+            applyLiveHSLAdjustmentsImmediate();
+            hslDebouncer.playFromStart();
         });
 
         saturationSlider.valueProperty().addListener((obs, old, val) -> {
             saturationLabel.setText(String.format("%.0f%%", val.doubleValue()));
-            applyLiveHSLAdjustments();
+            applyLiveHSLAdjustmentsImmediate();
+            hslDebouncer.playFromStart();
         });
 
         lightnessSlider.valueProperty().addListener((obs, old, val) -> {
             lightnessLabel.setText(String.format("%.0f%%", val.doubleValue()));
-            applyLiveHSLAdjustments();
+            applyLiveHSLAdjustmentsImmediate();
+            hslDebouncer.playFromStart();
         });
     }
 
@@ -138,6 +148,9 @@ public class ColorEditorController {
         biomeTableView.refresh();
     }
 
+    /**
+     * Hides the color and HSL adjustment UI components.
+     */
     private void hideUi() {
         columnHsvSettings.setVisible(false);
         columnHsvSettingsHeader.setVisible(false);
@@ -146,17 +159,24 @@ public class ColorEditorController {
     }
 
     /**
-     * Applies live HSL adjustments to the selected columns in the table.
+     * Immediately applies HSL adjustments without triggering a full table refresh.
+     * This updates the color data instantly while allowing the debouncer to handle the visual refresh.
      */
-    private void applyLiveHSLAdjustments() {
+    private void applyLiveHSLAdjustmentsImmediate() {
         double hueShift = hueSlider.getValue();
         double satShift = saturationSlider.getValue() / 100.0;
         double lightShift = lightnessSlider.getValue() / 100.0;
 
         var selectedCells = biomeTableView.getSelectedCells();
+        selectedCells.forEach(cell -> cell.adjustHSL(hueShift, satShift, lightShift));
+    }
 
-        selectedCells.forEach(cell -> cell.adjustHSL(hueShift,satShift,lightShift));
+    /**
+     * Applies live HSL adjustments to the selected columns in the table and refresh.
+     */
+    private void applyLiveHSLAdjustments() {
 
+        applyLiveHSLAdjustmentsImmediate();
         biomeTableView.refresh();
     }
 

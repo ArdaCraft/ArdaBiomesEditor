@@ -3,6 +3,7 @@ package com.duom.ardabiomeseditor.ui.views;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableColumnBase;
 import javafx.scene.control.TablePosition;
 import javafx.scene.control.TableView;
 
@@ -20,9 +21,10 @@ import java.util.stream.Collectors;
 public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectionModel<S> {
 
     private final TableView<S> tableView;
+    private final Set<CellIdentifier> selectedCells;
+    private ObservableList<TablePosition> cachedSelectedCells = null;
 
     private record CellIdentifier(int row, String modifierName) {}
-    private Set<CellIdentifier> selectedCells;
 
     public BiomeTableViewSelectionModel(TableView<S> tableView) {
         super(tableView);
@@ -38,17 +40,28 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
     @Override
     public ObservableList<TablePosition> getSelectedCells() {
 
-        ObservableList<TablePosition> positions = FXCollections.observableArrayList();
+        if (cachedSelectedCells == null) {
+            cachedSelectedCells = FXCollections.observableArrayList();
+            rebuildCachedCells();
+        }
+        return cachedSelectedCells;
+    }
+
+    private void rebuildCachedCells() {
+        cachedSelectedCells.clear();
 
         for (CellIdentifier cell : selectedCells) {
-            // Find the column with matching modifier name from UserData
             tableView.getColumns().stream()
                     .filter(col -> cell.modifierName().equals(col.getUserData()))
-                    .findFirst().ifPresent(column -> positions.add(new TablePosition<>(tableView, cell.row(), column)));
-
+                    .filter(TableColumnBase::isVisible)
+                    .findFirst()
+                    .ifPresent(column -> cachedSelectedCells.add(
+                            new TablePosition<>(tableView, cell.row(), column)));
         }
+    }
 
-        return positions;
+    private void invalidateCache() {
+        cachedSelectedCells = null;
     }
 
     /**
@@ -99,6 +112,8 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
                 selectedCells.add(new CellIdentifier(row, currentColumnModifierName));
             }
         }
+
+        invalidateCache();
     }
 
     /**
@@ -111,6 +126,8 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
     public void clearAndSelect(int row, TableColumn<S, ?> column) {
         clearSelection();
         select(row, column);
+
+        invalidateCache();
     }
 
     /**
@@ -135,6 +152,8 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
                 selectedCells.remove(new CellIdentifier(row, currentColumnModifierName));
             }
         }
+
+        invalidateCache();
     }
 
     /**
@@ -143,7 +162,9 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
     @Override
     public void clearSelection() {
 
-        this.selectedCells = new HashSet<>();
+        this.selectedCells.clear();
+
+        invalidateCache();
     }
 
     /**
@@ -197,6 +218,8 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
         for (int rowIndex = 0; rowIndex < tableView.getItems().size(); rowIndex++) {
             selectedCells.add(new CellIdentifier(rowIndex, modifierName));
         }
+
+        invalidateCache();
     }
 
     /**
@@ -206,6 +229,7 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
      */
     public void deselectColumn(String modifierName) {
         selectedCells.removeIf(cell -> cell.modifierName().equals(modifierName));
+        invalidateCache();
     }
 
     /**
@@ -218,6 +242,7 @@ public class BiomeTableViewSelectionModel<S> extends TableView.TableViewSelectio
         clearSelection();
         String modifierName = column != null ? (String) column.getUserData() : "";
         selectedCells.add(new CellIdentifier(rowIndex, modifierName));
+        invalidateCache();
     }
 
     @Override

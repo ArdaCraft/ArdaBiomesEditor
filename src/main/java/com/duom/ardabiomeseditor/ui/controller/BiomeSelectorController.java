@@ -10,10 +10,12 @@ import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.ListView;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * Controller for managing biome selection in the UI.
@@ -26,14 +28,32 @@ public class BiomeSelectorController {
     private BiomeTableView biomeTableView;
     private ResourcePackService resourcePackService;
     private Consumer<Runnable> selectionChangedCallback;
-    private String currentBiome;
 
     /**
      * Initializes the controller. Sets up the listener for biome selection changes.
      */
     @FXML
     public void initialize() {
+
         biomeList.getSelectionModel().selectedItemProperty().addListener(this::handleBiomeSelection);
+        biomeList.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+
+                super.updateItem(item, empty);
+
+                if (empty || item == null) {
+                    setText(null);
+                } else if (item.contains(":")){
+
+                    var itemName = Arrays.stream(item.split(":")[1].split("_"))
+                            .map(word -> word.substring(0, 1).toUpperCase() + word.substring(1).toLowerCase())
+                            .collect(Collectors.joining(" "));
+                    setText(itemName);
+                } else
+                    setText(item);
+            }
+        });
     }
 
     /**
@@ -80,13 +100,13 @@ public class BiomeSelectorController {
     private void handleBiomeSelection(ObservableValue<? extends String> observable, String oldValue, String newValue) {
         ArdaBiomesEditor.LOGGER.info("Biome selection event old:[{}] new:[{}]", oldValue, newValue);
 
-        if (newValue == null || newValue.equals(currentBiome)) return;
+        if (newValue == null || newValue.equals(oldValue)) return;
 
         var biomeKey = resourcePackService.getBiomes().getBiomeMapping().getOrDefault(newValue, 0);
 
         if (biomeKey != biomeTableView.getBiomeKey()) {
             selectionChangedCallback.accept(() -> {
-                currentBiome = newValue;
+
                 loadNewBiomeData(biomeKey);
             });
         }
@@ -115,9 +135,7 @@ public class BiomeSelectorController {
      * If a biome is currently selected, it re-selects it in the ListView.
      */
     public void resetBiomeTableView() {
-
-        if (currentBiome != null) {
-            biomeList.getSelectionModel().select(currentBiome);
-        }
+        var currentBiome = biomeList.getSelectionModel().getSelectedItem();
+        if (currentBiome != null) biomeList.getSelectionModel().select(currentBiome);
     }
 }
