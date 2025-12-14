@@ -1,4 +1,4 @@
-<p align="center"><img src="src/main/resources/icon_256.png" /></p>
+<p align="center"><img src="src/main/resources/assets/icons/icon_256.png" /></p>
 
 # ArdaBiomesEditor
 A biome color mapping editor for Ardacraft and Polytone
@@ -42,3 +42,17 @@ jpackage --type app-image \
 This work is licensed under the CC-BY 4 License
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC_BY_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
+
+### Third-Party Assets
+
+This project includes icons licensed under the Apache License 2.0.
+
+- [Material Design Icons](https://icon-sets.iconify.design/mdi/) by Pictogrammers
+  - License: Apache License, Version 2.0
+  - License text: [LICENSE](assets/icons/mdi/LICENSE)
+- [Remix Icon icon set](https://icon-sets.iconify.design/ri/) by Remix Design
+  - License: Apache License, Version 2.0
+  - License text: [LICENSE](assets/icons/ri/LICENSE)
+- [Tabler Icons](https://icon-sets.iconify.design/tabler/) by Paweł Kuna
+  - License: MIT License
+  - License text: [LICENSE](assets/icons/tabler/LICENSE)

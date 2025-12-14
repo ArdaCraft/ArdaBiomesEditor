@@ -163,28 +163,33 @@ public class ArdaBiomesController {
     /**
      * Handles changes in biome selection.
      * Prompts the user to save unsaved changes before switching to the new selection.
-     * @param selectionChange The callback to execute for the selection change.
+     * @param oldSelection The previous biome selection.
      */
-    private void biomeSelectionChanged(Runnable selectionChange) {
+    private void biomeSelectionChanged(String oldSelection) {
 
-        if (biomeTableView.hasUnsavedChanges()) {
+        var currentSelection = biomeSelectionController.getCurrentSelectedBiome();
 
-            showUnsavedChangesDialog(selectionChange,
-                    () -> {
-                        biomeTableView.resetChanges();
-                        colorEditorController.resetAndHideUi();
-                        selectionChange.run();
+        if (biomeTableView.hasUnsavedChanges() && oldSelection != null && !oldSelection.equals(currentSelection)) {
+
+            showUnsavedChangesDialog(() -> {
+                        biomeSelectionController.confirmSelectionChange();
+                        biomeSelectionController.loadNewBiomeData(currentSelection);
                     },
                     () -> {
-                        biomeSelectionController.resetBiomeTableView();
+                        biomeTableView.resetChanges(biomeTableView.getSelectedColumns());
                         colorEditorController.resetAndHideUi();
-
+                        biomeSelectionController.confirmSelectionChange();
+                        biomeSelectionController.loadNewBiomeData(currentSelection);
+                    },
+                    () -> {
+                        biomeSelectionController.revertSelection();
             });
 
         } else {
 
             colorEditorController.resetAndHideUi();
-            selectionChange.run();
+            biomeSelectionController.confirmSelectionChange();
+            biomeSelectionController.loadNewBiomeData(currentSelection);
         }
     }
 
@@ -229,7 +234,7 @@ public class ArdaBiomesController {
                         saveBiomeEdits(exitAction);
                     },
                     () -> {
-                        biomeTableView.resetChanges();
+                        biomeTableView.resetChanges(biomeTableView.getSelectedColumns());
                         exitAction.run();
                     },
                     () -> {}

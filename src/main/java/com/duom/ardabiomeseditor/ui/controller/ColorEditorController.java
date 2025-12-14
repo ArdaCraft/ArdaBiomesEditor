@@ -1,10 +1,12 @@
 package com.duom.ardabiomeseditor.ui.controller;
 
+import com.duom.ardabiomeseditor.services.GuiResourceService;
 import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
 import javafx.animation.PauseTransition;
 import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
@@ -33,6 +35,7 @@ public class ColorEditorController {
     @FXML private VBox columnHsvSettings;
     @FXML private Label columnHsvSettingsHeader;
     @FXML private Label columnHsvSettingsSubtitle;
+    @FXML private Button saveButton;
 
     private BiomeTableView biomeTableView;
     private Consumer<Runnable> saveCallback;
@@ -71,6 +74,8 @@ public class ColorEditorController {
             hslDebouncer.playFromStart();
         };
 
+        saveButton.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.SAVE));
+
         initHslSliderListeners();
     }
 
@@ -98,6 +103,9 @@ public class ColorEditorController {
         hueSlider.setValue(0);
         saturationSlider.setValue(0);
         lightnessSlider.setValue(0);
+        hueLabel.setText("0");
+        saturationLabel.setText("0");
+        lightnessLabel.setText("0");
     }
 
     public void silentResetHsl(){
@@ -206,16 +214,6 @@ public class ColorEditorController {
     private void applyLiveHSLAdjustments() {
 
         applyLiveHSLAdjustmentsImmediate();
-        biomeTableView.refresh();
-    }
-
-    /**
-     * Clears the current selection in the table.
-     */
-    @FXML
-    private void onClearSelection() {
-        hideUi();
-        biomeTableView.getSelectionModel().clearSelection();
         biomeTableView.refresh();
     }
 

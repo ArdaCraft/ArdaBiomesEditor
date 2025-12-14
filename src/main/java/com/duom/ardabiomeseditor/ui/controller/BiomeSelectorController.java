@@ -2,18 +2,20 @@ package com.duom.ardabiomeseditor.ui.controller;
 
 import com.duom.ardabiomeseditor.ArdaBiomesEditor;
 import com.duom.ardabiomeseditor.model.Modifier;
+import com.duom.ardabiomeseditor.services.GuiResourceService;
+import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.services.ModifierService;
 import com.duom.ardabiomeseditor.services.ResourcePackService;
 import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
+import javafx.scene.control.ContextMenu;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -24,10 +26,17 @@ import java.util.stream.Collectors;
 public class BiomeSelectorController {
 
     @FXML private ListView<String> biomeList;
+    private MenuItem sortMenuItem;
 
+    private String previousSelection = null;
     private BiomeTableView biomeTableView;
     private ResourcePackService resourcePackService;
-    private Consumer<Runnable> selectionChangedCallback;
+    private Consumer<String> selectionChangedCallback;
+
+    private enum BiomeSortType {
+        ALPHABETICAL,
+        BY_ID
+    }
 
     /**
      * Initializes the controller. Sets up the listener for biome selection changes.
@@ -35,8 +44,16 @@ public class BiomeSelectorController {
     @FXML
     public void initialize() {
 
+        initializeContextMenu();
+
+        biomeList.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.isSecondaryButtonDown()) {
+                event.consume();
+            }
+        });
+
         biomeList.getSelectionModel().selectedItemProperty().addListener(this::handleBiomeSelection);
-        biomeList.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+        biomeList.setCellFactory(lv -> new ListCell<String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
 
@@ -54,6 +71,32 @@ public class BiomeSelectorController {
                     setText(item);
             }
         });
+    }
+
+    private void initializeContextMenu(){
+
+        var contextMenu = new ContextMenu();
+        sortMenuItem = new MenuItem(I18nService.get("ardabiomeseditor.biome.list.sort.alphabetically"));
+        sortMenuItem.setUserData(BiomeSortType.BY_ID);
+
+        sortMenuItem.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.SORT));
+        sortMenuItem.setOnAction(e -> {
+
+            BiomeSortType sortType = sortMenuItem.getUserData() != null ? (BiomeSortType) sortMenuItem.getUserData() : BiomeSortType.BY_ID;
+
+            if (sortType == BiomeSortType.BY_ID) {
+                sortMenuItem.setText(I18nService.get("ardabiomeseditor.biome.list.sort.alphabetically"));
+                sortMenuItem.setUserData(BiomeSortType.ALPHABETICAL);
+            } else {
+                sortMenuItem.setText(I18nService.get("ardabiomeseditor.biome.list.sort.by.id"));
+                sortMenuItem.setUserData(BiomeSortType.BY_ID);
+            }
+
+            loadBiomes();
+        });
+
+        contextMenu.getItems().add(sortMenuItem);
+        biomeList.setContextMenu(contextMenu);
     }
 
     /**
@@ -76,7 +119,7 @@ public class BiomeSelectorController {
      * Sets the callback to be executed when the biome selection changes.
      * @param callback The callback to execute.
      */
-    public void setSetSelectionChangedCallback(Consumer<Runnable> callback) {
+    public void setSetSelectionChangedCallback(Consumer<String> callback) {
         this.selectionChangedCallback = callback;
     }
 
@@ -85,9 +128,32 @@ public class BiomeSelectorController {
      * Retrieves biome names from the resource pack service and sorts them alphabetically.
      */
     public void loadBiomes() {
-        biomeList.setItems(FXCollections.observableArrayList(
-                resourcePackService.getBiomes().getBiomeMapping().keySet().stream().sorted().toList()
-        ));
+
+        var selectedItem = biomeList.getSelectionModel().getSelectedItem();
+
+        var biomeMappings = resourcePackService.getBiomes().getBiomeMapping();
+        var sortType = sortMenuItem.getUserData() != null ? (BiomeSortType) sortMenuItem.getUserData() : BiomeSortType.BY_ID;
+
+        if (sortType == BiomeSortType.BY_ID) {
+            biomeList.setItems(FXCollections.observableArrayList(
+                    biomeMappings.entrySet().stream()
+                            .sorted(Comparator.comparingInt(Map.Entry::getValue))
+                            .map(Map.Entry::getKey)
+                            .toList()
+            ));
+        } else {
+
+            biomeList.setItems(FXCollections.observableArrayList(
+                    biomeMappings.entrySet().stream()
+                            .sorted(Comparator.comparing(Map.Entry::getKey))
+                            .map(Map.Entry::getKey)
+                            .toList()
+            ));
+        }
+
+        if (selectedItem != null) {
+            biomeList.getSelectionModel().select(selectedItem);
+        }
     }
 
     /**
@@ -100,34 +166,46 @@ public class BiomeSelectorController {
     private void handleBiomeSelection(ObservableValue<? extends String> observable, String oldValue, String newValue) {
         ArdaBiomesEditor.LOGGER.info("Biome selection event old:[{}] new:[{}]", oldValue, newValue);
 
-        if (newValue == null || newValue.equals(oldValue)) return;
+        if (newValue == null || newValue.equals(previousSelection)) return;
 
         var biomeKey = resourcePackService.getBiomes().getBiomeMapping().getOrDefault(newValue, 0);
 
-        if (biomeKey != biomeTableView.getBiomeKey()) {
-            selectionChangedCallback.accept(() -> {
+        if (biomeKey != biomeTableView.getBiomeKey())
+            selectionChangedCallback.accept(previousSelection);
+    }
 
-                loadNewBiomeData(biomeKey);
-            });
-        }
+    public void confirmSelectionChange() {
+        previousSelection = biomeList.getSelectionModel().getSelectedItem();
+    }
+
+    public void revertSelection() {
+        biomeList.getSelectionModel().selectedItemProperty().removeListener(this::handleBiomeSelection);
+        biomeList.getSelectionModel().select(previousSelection);
+        biomeList.getSelectionModel().selectedItemProperty().addListener(this::handleBiomeSelection);
+    }
+
+    public void loadNewBiomeData(String newBiomeKey){
+
+        var biomeKey = resourcePackService.getBiomes().getBiomeMapping().getOrDefault(newBiomeKey, 0);
+        loadNewBiomeData(biomeKey);
     }
 
     /**
      * Loads data for the newly selected biome and updates the biome table view.
-     * @param biomeKey The key of the selected biome.
+     * @param biomeId The id of the selected biome.
      */
-    private void loadNewBiomeData(int biomeKey) {
-        ArdaBiomesEditor.LOGGER.info("Loading biome for key {}", biomeKey);
+    private void loadNewBiomeData(int biomeId) {
+        ArdaBiomesEditor.LOGGER.info("Loading biome for key {}", biomeId);
 
         Map<String, List<String>> colorMappings = new HashMap<>();
 
         for (Modifier modifier : resourcePackService.getBlockModifiers().values()) {
             if (modifier.getModifier() != null) {
-                colorMappings.put(modifier.getName(), ModifierService.getColorsForBiome(modifier, biomeKey));
+                colorMappings.put(modifier.getName(), ModifierService.getColorsForBiome(modifier, biomeId));
             }
         }
 
-        biomeTableView.configure(biomeKey, colorMappings);
+        biomeTableView.configure(biomeId, colorMappings);
     }
 
     /**
@@ -137,5 +215,9 @@ public class BiomeSelectorController {
     public void resetBiomeTableView() {
         var currentBiome = biomeList.getSelectionModel().getSelectedItem();
         if (currentBiome != null) biomeList.getSelectionModel().select(currentBiome);
+    }
+
+    public String getCurrentSelectedBiome() {
+        return biomeList.getSelectionModel().getSelectedItem();
     }
 }

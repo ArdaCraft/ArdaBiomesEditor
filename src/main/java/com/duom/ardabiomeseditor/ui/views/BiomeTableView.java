@@ -1,6 +1,7 @@
 package com.duom.ardabiomeseditor.ui.views;
 
 import com.duom.ardabiomeseditor.model.ColorData;
+import com.duom.ardabiomeseditor.services.GuiResourceService;
 import com.duom.ardabiomeseditor.services.I18nService;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -38,7 +39,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     public static final int CELL_WIDTH = 40;
 
     // The key representing the current biome being displayed
-    private int biomeKey;
+    private int biomeKey = -1;
 
     private BiConsumer<Integer, BiomeTableClickEvent> clickHandler;
     private List<String> currentColumnOrder = new ArrayList<>();
@@ -120,8 +121,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         columnContextMenu = new ContextMenu();
 
         setOnContextMenuRequested(event -> {
-            TableColumn<ObservableList<ColorData>, ?> clickedColumn = getClickedColumn(event.getX());
-            updateContextMenu(clickedColumn);
+            updateContextMenu();
             columnContextMenu.show(this, event.getScreenX(), event.getScreenY());
         });
 
@@ -299,44 +299,25 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     }
 
     /**
-     * Updates the context menu with Hide and Show All options.
-     * @param clickedColumn the column that was right-clicked
+     * Updates the context menu
      */
-    private void updateContextMenu(TableColumn<ObservableList<ColorData>, ?> clickedColumn) {
+    private void updateContextMenu() {
 
         columnContextMenu.getItems().clear();
 
-        if (clickedColumn == null || clickedColumn.getUserData() == null) {
-            return;
-        }
-
-        String clickedColumnName = (String) clickedColumn.getUserData();
-        Set<String> selectedColumns = biomeTableViewSelectionModel.getSelectedColumns();
-
-        // Determine which columns to hide
-        Set<String> columnsToHide = new HashSet<>();
-        if (!selectedColumns.isEmpty() && selectedColumns.contains(clickedColumnName)) {
-            columnsToHide = selectedColumns;
-        } else {
-            columnsToHide.add(clickedColumnName);
-        }
-
         // Hide menu item
         MenuItem hideItem = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.hide_columns"));
-        Set<String> finalColumnsToHide = columnsToHide;
+        hideItem.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.HIDE));
         hideItem.setOnAction(e -> {
-            for (int i = 0; i < getColumns().size(); i++) {
 
-                TableColumn<ObservableList<ColorData>, ?> column = getColumns().get(i);
+            Set<String> selectedColumns = biomeTableViewSelectionModel.getSelectedColumns();
+            getColumns().stream()
+                    .filter(column -> {
+                        String columnName = (String) column.getUserData();
+                        return selectedColumns.contains(columnName);
+                    })
+                    .forEach(column -> column.setVisible(false));
 
-                if (column.isVisible()) {
-                    String columnName = (String) column.getUserData();
-                    if (finalColumnsToHide.contains(columnName)) {
-                        column.setVisible(false);
-                    }
-                }
-
-            }
             biomeTableViewSelectionModel.clearSelection();
             updateAllHeaders();
             refresh();
@@ -344,10 +325,12 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
         // Show All menu item
         MenuItem showAllItem = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.show_all_columns"));
+        showAllItem.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.SHOW));
         showAllItem.setOnAction(e -> {showAllColumns(null);});
 
         // Sort Columns menu item
         MenuItem sortColumnsItem = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.sort_columns"));
+        sortColumnsItem.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.SORT));
         sortColumnsItem.setOnAction(e -> {
 
             List<TableColumn<ObservableList<ColorData>, ?>> columnsToSort = new ArrayList<>(getColumns());
@@ -368,6 +351,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         });
 
         MenuItem resetZoom = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.reset_zoom"));
+        resetZoom.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.ZOOM_RESET));
         resetZoom.setOnAction(e -> {
 
             zoomFactor = 1;
@@ -375,7 +359,21 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
             refresh();
         });
 
-        columnContextMenu.getItems().addAll(hideItem, showAllItem, sortColumnsItem, resetZoom);
+        MenuItem resetColumnEdit = new MenuItem(I18nService.get("ardabiomeseditor.biometableview.reset_column_edit"));
+        resetColumnEdit.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.RESET));
+        resetColumnEdit.setOnAction(e -> {
+
+            resetChanges(biomeTableViewSelectionModel.getSelectedColumns());
+        });
+
+        columnContextMenu.getItems().addAll(hideItem,
+                showAllItem,
+                new SeparatorMenuItem(),
+                sortColumnsItem,
+                new SeparatorMenuItem(),
+                resetZoom,
+                new SeparatorMenuItem(),
+                resetColumnEdit);
     }
 
     /**
@@ -916,17 +914,27 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
     /**
      * Resets all changes made in the table to their original values.
      */
-    public void resetChanges() {
+    public void resetChanges(Set<String> selectedColumns) {
 
-        for (int idx = 0; idx < getItems().size(); idx++) {
-
-            var rowData = getItems().get(idx);
-
+        for (ObservableList<ColorData> rowData : getItems())
             for (int columnIndex = 0 ; columnIndex < rowData.size() - 1; columnIndex++) {
 
-                rowData.get(columnIndex).reset();
+                String columnName = (String) getColumns().get(columnIndex).getUserData();
+                if (selectedColumns.contains(columnName)) rowData.get(columnIndex).reset();
             }
-        }
+    }
+
+    /**
+     * Resets changes made in a specific column to their original values.
+     *
+     * @param columnIndex The index of the column to reset.
+     */
+    public void resetChanges(int columnIndex) {
+
+        if (columnIndex == -1) return;
+
+        for (ObservableList<ColorData> rowData : getItems())
+            rowData.get(columnIndex).reset();
     }
 
     /**

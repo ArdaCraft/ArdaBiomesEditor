@@ -53,6 +53,5 @@
 
     <Region VBox.vgrow="ALWAYS" />
 
-    <Button text="Clear Selection" onAction="#onClearSelection" maxWidth="Infinity"/>
-    <Button text="Save" onAction="#onSaveColorEdits" maxWidth="Infinity"/>
+    <Button fx:id="saveButton" text="Save" onAction="#onSaveColorEdits" maxWidth="Infinity"/>
 </VBox>
