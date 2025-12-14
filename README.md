@@ -31,7 +31,7 @@ jpackage --type app-image \
   --input target\dist \
   --main-jar ArdaBiomeEditor-<version>.jar \
   --runtime-image target\image \
-  --icon src\main\resources\icon.ico \
+  --icon src\main\resources\assets\icons\icon.ico \
   --name ArdaBiomesEditor \
   --dest target\release \ 
   --main-class com.duom.ardabiomeseditor.ArdaBiomesEditor

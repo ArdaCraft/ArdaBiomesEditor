@@ -9,7 +9,6 @@ import javafx.scene.control.*;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
@@ -29,13 +28,13 @@ import java.util.function.Consumer;
 public class FileManagementController {
 
     @FXML private Menu recentFilesMenu;
-    @FXML private TextFlow currentFileLabel;
 
     private ResourcePackService resourcePackService;
     private Consumer<Path> onFileLoadedCallback;
     private Consumer<Runnable> saveCallback;
     private Consumer<Runnable> menuExitCallback;
     private Consumer<Void> showAllCallback;
+    private Consumer<String> resourcePackLoadCallback;
 
     /**
      * Initializes the controller. Updates the recent files menu.
@@ -104,6 +103,9 @@ public class FileManagementController {
         ArdaBiomesEditor.LOGGER.info("Loading resource pack {}", filePath.getFileName());
         ArdaBiomesEditor.CONFIG.addRecentFile(filePath.toAbsolutePath().toString());
 
+        if (!reload)
+            resourcePackLoadCallback.accept(filePath.toAbsolutePath().toString());
+
         try {
 
             resourcePackService.readResourcePack(filePath);
@@ -112,7 +114,7 @@ public class FileManagementController {
             showErrorPopup(filePath,
                     I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error_title"),
                     I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error", filePath.toString()),
-                    I18nService.get("ardabiomeseditor.filmanagement.error.missing_directory"));
+                    I18nService.get("ardabiomeseditor.filmanagement.error.missing_directory", mre.getKey(), mre.getClassName()));
 
         } catch (IOException ioe) {
 
@@ -128,8 +130,6 @@ public class FileManagementController {
         Hyperlink pathLink = new Hyperlink(filePath.toAbsolutePath().toString());
         pathLink.setStyle("-fx-text-fill: orange; -fx-underline: false;");
         pathLink.setOnAction(e -> openFileLocation(filePath));
-
-        currentFileLabel.getChildren().setAll(editingText, pathLink);
 
         if (!reload) {
             ArdaBiomesEditor.CONFIG.addRecentFile(filePath.toAbsolutePath().toString());
@@ -293,4 +293,11 @@ public class FileManagementController {
     public void setShowAllCallback(Consumer<Void> showAllCallback) {
         this.showAllCallback = showAllCallback;
     }
+
+    /**
+     * Sets the callback to be executed when a resource pack is loaded.
+     *
+     * @param resourcePackLoadCallback The resource pack load callback function.
+     */
+    public void setResourcePackLoadCallback(Consumer<String> resourcePackLoadCallback) { this.resourcePackLoadCallback = resourcePackLoadCallback; }
 }

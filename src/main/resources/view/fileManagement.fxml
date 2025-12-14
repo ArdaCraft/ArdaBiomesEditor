@@ -28,9 +28,4 @@
             </Menu>
         </MenuBar>
     </left>
-    <center>
-        <VBox alignment="CENTER" VBox.vgrow="ALWAYS">
-            <TextFlow fx:id="currentFileLabel" textAlignment="CENTER"/>
-        </VBox>
-    </center>
 </BorderPane>

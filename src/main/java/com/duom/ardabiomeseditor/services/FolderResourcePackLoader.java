@@ -2,6 +2,7 @@ package com.duom.ardabiomeseditor.services;
 
 import com.duom.ardabiomeseditor.ArdaBiomesEditor;
 import com.duom.ardabiomeseditor.model.ColorData;
+import com.duom.ardabiomeseditor.model.Modifier;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,33 +18,32 @@ public class FolderResourcePackLoader extends ResourcePackLoader{
     private Path resourcePackPath;
 
     @Override
-    public void load(Path path) throws MissingResourceException, IOException {
+    public void load(Path root) throws MissingResourceException, IOException {
 
-        Path polytoneRoot = path.resolve(POLYTONE_ROOT);
-        Path polytoneBlockModifiersRoot = path.resolve(POLYTONE_BLOCK_MODIFIERS_ROOT);
-        Path polytoneMappings = path.resolve(POLYTONE_MAPPINGS);
+        validateResourcePackStructure(root);
 
-        // Validate required paths
-        if (!Files.exists(polytoneRoot)) {
-            ArdaBiomesEditor.LOGGER.error("Missing directory: {}", POLYTONE_ROOT);
-            throw new MissingResourceException("Missing required directory: " + POLYTONE_ROOT, POLYTONE_ROOT, "polytone root");
-        }
-        if (!Files.exists(polytoneMappings) || !Files.isRegularFile(polytoneMappings)) {
-            ArdaBiomesEditor.LOGGER.error("Missing file: {}", POLYTONE_MAPPINGS);
-            throw new MissingResourceException ("Missing required file: " + POLYTONE_MAPPINGS, POLYTONE_MAPPINGS, "mappings configuration");
-        }
-
-        resourcePackPath = path;
+        resourcePackPath = root;
 
         readBiomeMappingsEntry(Files.readAllBytes(polytoneMappings));
 
-        if (Files.exists(polytoneBlockModifiersRoot)) {
+        readModifiers(polytoneBlockModifiersRoot, blockModifiers);
+        readModifiers(polytoneDimensionsModifiersRoot, dimensionsModifiers);
+        readModifiers(polytonFluidModifiersRoot, fluidModifiers);
+        readModifiers(polytonParticleModifiersRoot, particleModifiers);
 
-            try (var files = Files.walk(polytoneBlockModifiersRoot)) {
+        validateLoadedModifiers();
+    }
+
+    private void readModifiers(Path root, Map<String, Modifier> modifiers) throws IOException {
+
+        if (Files.exists(root)) {
+
+            try (var files = Files.walk(root)) {
+
                 files.filter(Files::isRegularFile)
                         .forEach(file -> {
                             try {
-                                readEntry(file.getFileName().toString(), Files.readAllBytes(file));
+                                readEntry(file.getFileName().toString(), Files.readAllBytes(file), modifiers);
                             } catch (IOException e) {
 
                                 ArdaBiomesEditor.LOGGER.error("Failed to read file: {}", file, e);
@@ -52,7 +52,7 @@ public class FolderResourcePackLoader extends ResourcePackLoader{
             }
 
         } else {
-            ArdaBiomesEditor.LOGGER.warn("Missing directory: {}", POLYTONE_BLOCK_MODIFIERS_ROOT);
+            ArdaBiomesEditor.LOGGER.warn("Missing directory: {}", root);
         }
     }
 
@@ -63,9 +63,9 @@ public class FolderResourcePackLoader extends ResourcePackLoader{
 
         persistColorChanges(colorChanges,
                 biomeKey,
-                progressCallback,
-                resourcePackPath.toAbsolutePath().toString() + File.separator,
-                resourcePackPath.getFileSystem());
+                resourcePackPath.getFileSystem(),
+                resourcePackPath.toAbsolutePath() + File.separator,
+                progressCallback);
     }
 
     @Override

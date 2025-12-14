@@ -52,6 +52,4 @@
     </VBox>
 
     <Region VBox.vgrow="ALWAYS" />
-
-    <Button fx:id="saveButton" text="Save" onAction="#onSaveColorEdits" maxWidth="Infinity"/>
 </VBox>

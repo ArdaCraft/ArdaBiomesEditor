@@ -1,6 +1,7 @@
 package com.duom.ardabiomeseditor.services;
 
 import com.duom.ardabiomeseditor.model.ColorData;
+import com.duom.ardabiomeseditor.model.Modifier;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -20,9 +21,14 @@ public class ZipResourcePackLoader extends ResourcePackLoader {
     private Path zipPath;
 
     @Override
-    public void load(Path path){
+    public void load(Path path) throws IOException {
 
         this.zipPath = path;
+
+        try (FileSystem zipFs = FileSystems.newFileSystem(zipPath, (ClassLoader) null)) {
+
+            validateResourcePackStructure(zipFs.getPath(""));
+        }
 
         try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipPath))) {
 
@@ -35,6 +41,8 @@ public class ZipResourcePackLoader extends ResourcePackLoader {
 
             throw new RuntimeException(e);
         }
+
+        validateLoadedModifiers();
     }
 
     @Override
@@ -46,7 +54,7 @@ public class ZipResourcePackLoader extends ResourcePackLoader {
 
         try (FileSystem zipFs = FileSystems.newFileSystem(zipPath, (ClassLoader) null)) {
 
-            persistColorChanges(colorChanges, biomeKey, progressCallback, "", zipFs);
+            persistColorChanges(colorChanges, biomeKey, zipFs, "", progressCallback);
         }
     }
 
@@ -61,33 +69,23 @@ public class ZipResourcePackLoader extends ResourcePackLoader {
      */
     private void readResourcePackEntry(String entryName, ZipEntry entry, ZipInputStream zis) throws IOException {
 
-        if (entryName.startsWith(POLYTONE_ROOT)) {
+        // Process base biome mappings file
+        if (polytoneMappings.toString().equals(entryName))
+            readBiomeMappingsEntry(zis.readAllBytes());
 
-            // Process base biome mappings file
-            if (entryName.equals(POLYTONE_MAPPINGS)) {
-
-                readBiomeMappingsEntry(zis.readAllBytes());
-            }
-
-            if (entryName.startsWith(POLYTONE_BLOCK_MODIFIERS_ROOT)) {
-
-                readBlockEntry(entry, zis);
-            }
-        }
+        readEntry(entryName, entry, zis, polytoneBlockModifiersRoot, blockModifiers);
+        readEntry(entryName, entry, zis, polytoneDimensionsModifiersRoot, dimensionsModifiers);
+        readEntry(entryName, entry, zis, polytonFluidModifiersRoot, fluidModifiers);
+        readEntry(entryName, entry, zis, polytonParticleModifiersRoot, particleModifiers);
     }
 
-    /**
-     * Reads and processes a block entry (JSON or PNG).
-     * Updates the blockModifiers map with the parsed data.
-     *
-     * @param entry The ZipEntry object.
-     * @param zis The ZipInputStream for reading the entry data.
-     * @throws IOException If an I/O error occurs.
-     */
-    private void readBlockEntry(ZipEntry entry, ZipInputStream zis) throws IOException {
+    private void readEntry(String entryName, ZipEntry entry, ZipInputStream zis, Path root, Map<String, Modifier> modifiers) throws IOException {
 
-        var assetName = entry.getName().replaceAll(POLYTONE_BLOCK_MODIFIERS_ROOT,"");
-        readEntry(assetName, zis.readAllBytes());
+        if (entryName.startsWith(root.toString())){
+
+            var assetName = entry.getName().replaceAll(root.toString() + "/","");
+            readEntry(assetName, zis.readAllBytes(), modifiers);
+        }
     }
 
     /**

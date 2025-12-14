@@ -139,6 +139,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
 
         indexDisplayContainer.getChildren().clear();
         indexDisplayContainer.setFillWidth(true);
+        indexDisplayContainer.setVisible(true);
 
         Region headerRegion = (Region) lookupAll(".column-header")
                 .stream()
@@ -163,7 +164,12 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         headerLabel.prefWidthProperty().bind(headerRegion.widthProperty());
         headerLabel.maxWidthProperty().bind(headerRegion.widthProperty());
 
-        headerLabel.setStyle("-fx-background-color: #161b22; -fx-border-color: #0d1117; -fx-border-width: 0 0 1 0; -fx-font-weight: bold;");
+        headerLabel.setStyle("-fx-font-family:'System';" +
+                " -fx-background-color: #161b22;" +
+                " -fx-border-color: #0d1117;" +
+                " -fx-border-color: #292f35;" +
+                " -fx-border-width: 1 0 1 0; " +
+                "-fx-font-weight: bold;");
 
         // Create container for scrollable index labels
         VBox scrollableContent = new VBox();
@@ -303,6 +309,7 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
      */
     private void updateContextMenu() {
 
+        Set<String> selectedColumns = biomeTableViewSelectionModel.getSelectedColumns();
         columnContextMenu.getItems().clear();
 
         // Hide menu item
@@ -310,7 +317,6 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         hideItem.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.HIDE));
         hideItem.setOnAction(e -> {
 
-            Set<String> selectedColumns = biomeTableViewSelectionModel.getSelectedColumns();
             getColumns().stream()
                     .filter(column -> {
                         String columnName = (String) column.getUserData();
@@ -366,14 +372,24 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
             resetChanges(biomeTableViewSelectionModel.getSelectedColumns());
         });
 
-        columnContextMenu.getItems().addAll(hideItem,
-                showAllItem,
-                new SeparatorMenuItem(),
-                sortColumnsItem,
-                new SeparatorMenuItem(),
-                resetZoom,
-                new SeparatorMenuItem(),
-                resetColumnEdit);
+        if (!selectedColumns.isEmpty()) {
+
+            columnContextMenu.getItems().addAll(hideItem,
+                    showAllItem,
+                    new SeparatorMenuItem(),
+                    sortColumnsItem,
+                    new SeparatorMenuItem(),
+                    resetZoom,
+                    new SeparatorMenuItem(),
+                    resetColumnEdit);
+        } else {
+
+            columnContextMenu.getItems().addAll(showAllItem,
+                    new SeparatorMenuItem(),
+                    sortColumnsItem,
+                    new SeparatorMenuItem(),
+                    resetZoom);
+        }
     }
 
     /**
@@ -1001,6 +1017,10 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
         return -1;
     }
 
+    /**
+     * Sets the container for displaying row indices.
+     * @param indexColumnContainer The VBox container for index display.
+     */
     public void setIndexDisplayContainer(VBox indexColumnContainer) {
         this.indexDisplayContainer = indexColumnContainer;
     }
@@ -1015,4 +1035,18 @@ public class BiomeTableView extends TableView<ObservableList<ColorData>> {
             getColumns().get(i).setVisible(true);
         }
     }
+
+    /**
+     * Clears the table view, removing all columns and items.
+     */
+    public void clear() {
+        biomeKey = -1;
+        biomeTableViewSelectionModel.clearSelection();
+        indexDisplayContainer.getChildren().clear();
+        indexDisplayContainer.setVisible(false);
+        getColumns().clear();
+        getItems().clear();
+        refresh();
+    }
+
 }

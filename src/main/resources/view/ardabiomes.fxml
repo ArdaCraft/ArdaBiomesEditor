@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.layout.*?>
-<?import javafx.scene.control.*?>
-<?import com.duom.ardabiomeseditor.ui.views.BiomeTableView?>
 
+<?import com.duom.ardabiomeseditor.ui.views.BiomeTableView?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 <StackPane xmlns="http://javafx.com/javafx"
            xmlns:fx="http://javafx.com/fxml"
+           fx:id="rootPane"
            fx:controller="com.duom.ardabiomeseditor.ui.controller.ArdaBiomesController"
            prefWidth="1500"
            prefHeight="1000">
@@ -16,11 +18,22 @@
         <center>
             <SplitPane dividerPositions="0.85">
                 <SplitPane dividerPositions="0.20">
+
                     <fx:include fx:id="biomeSelection" source="biomeSelector.fxml"/>
-                    <HBox>
-                        <VBox fx:id="indexColumnContainer" minWidth="40" maxWidth="40"/>
-                        <BiomeTableView fx:id="biomeTableView" HBox.hgrow="ALWAYS"/>
-                    </HBox>
+                    <VBox fx:id="biomeEditorContent" visible="false" managed="false">
+                        <HBox alignment="CENTER" spacing="5" style="-fx-background-color: #161b22;">
+                            <padding>
+                                <Insets top="10" right="10" bottom="10" left="10"/>
+                            </padding>
+                            <Label fx:id="biomeTitle" text="Biome"  textFill="white" style="-fx-font-family:'System'; -fx-font-weight: bold;"/>
+                            <Button fx:id="saveEditsButton" onAction="#onSaveBiomeEdits" style="-fx-background-color: transparent; -fx-background-insets: 0; -fx-border-width: 0;"/>
+                        </HBox>
+                        <HBox VBox.vgrow="ALWAYS">
+                            <VBox fx:id="indexColumnContainer" minWidth="40" maxWidth="40"/>
+                            <BiomeTableView fx:id="biomeTableView" HBox.hgrow="ALWAYS"/>
+
+                        </HBox>
+                    </VBox>
                 </SplitPane>
                 <fx:include fx:id="colorEditor" source="colorEditor.fxml"/>
             </SplitPane>

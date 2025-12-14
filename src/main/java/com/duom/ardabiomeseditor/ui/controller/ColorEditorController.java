@@ -1,20 +1,16 @@
 package com.duom.ardabiomeseditor.ui.controller;
 
-import com.duom.ardabiomeseditor.services.GuiResourceService;
 import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
 import javafx.animation.PauseTransition;
 import javafx.beans.value.ChangeListener;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.util.Duration;
-
-import java.util.function.Consumer;
 
 /**
  * Controller for managing the color editor functionality in the application.
@@ -35,10 +31,8 @@ public class ColorEditorController {
     @FXML private VBox columnHsvSettings;
     @FXML private Label columnHsvSettingsHeader;
     @FXML private Label columnHsvSettingsSubtitle;
-    @FXML private Button saveButton;
 
     private BiomeTableView biomeTableView;
-    private Consumer<Runnable> saveCallback;
     private ChangeListener<Number> hueListener;
     private ChangeListener<Number> saturationListener;
     private ChangeListener<Number> lightnessListener;
@@ -73,8 +67,6 @@ public class ColorEditorController {
             applyLiveHSLAdjustmentsImmediate();
             hslDebouncer.playFromStart();
         };
-
-        saveButton.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.SAVE));
 
         initHslSliderListeners();
     }
@@ -215,22 +207,5 @@ public class ColorEditorController {
 
         applyLiveHSLAdjustmentsImmediate();
         biomeTableView.refresh();
-    }
-
-    /**
-     * Saves the color edits by invoking the save callback.
-     */
-    @FXML
-    private void onSaveColorEdits() {
-        saveCallback.accept(null);
-    }
-
-    /**
-     * Sets the callback to be executed when saving changes.
-     *
-     * @param callback The save callback function.
-     */
-    public void setSaveCallback(Consumer<Runnable> callback) {
-        this.saveCallback = callback;
     }
 }

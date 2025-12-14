@@ -8,7 +8,9 @@ import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
 import java.util.List;
 import java.util.Map;
@@ -19,10 +21,16 @@ import java.util.Map;
  */
 public class ArdaBiomesController {
 
+    @FXML private StackPane rootPane;
+    @FXML private VBox biomeEditorContent;
+
+    @FXML private Label biomeTitle;
+
     @FXML private BiomeTableView biomeTableView;
     @FXML private VBox progressOverlay;
     @FXML private ProgressBar progressBar;
     @FXML private Label progressLabel;
+    @FXML private Button saveEditsButton;
 
     @FXML private VBox indexColumnContainer;
 
@@ -39,6 +47,8 @@ public class ArdaBiomesController {
     public void initialize() {
         ArdaBiomesEditor.LOGGER.info("Initializing controller GUI components");
         initializeSubControllers();
+
+        saveEditsButton.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.SAVE));
     }
 
     /**
@@ -47,7 +57,6 @@ public class ArdaBiomesController {
     private void initializeSubControllers() {
 
         colorEditorController.setBiomeTableView(biomeTableView);
-        colorEditorController.setSaveCallback(this::saveBiomeEdits);
 
         biomeTableView.setClickHandler((col, event) -> colorEditorController.handleTableClick(event));
         biomeTableView.setIndexDisplayContainer(indexColumnContainer);
@@ -61,6 +70,12 @@ public class ArdaBiomesController {
         fileManagementController.setShowAllCallback(biomeTableView::showAllColumns);
         fileManagementController.setSaveCallback(this::saveBiomeEdits);
         fileManagementController.setMenuExitCallback(this::onExitApplication);
+        fileManagementController.setResourcePackLoadCallback(this::clearUiOnResourcePackLoad);
+    }
+
+    @FXML
+    public void onSaveBiomeEdits(){
+        saveBiomeEdits(()->{});
     }
 
     /**
@@ -167,26 +182,34 @@ public class ArdaBiomesController {
      */
     private void biomeSelectionChanged(String oldSelection) {
 
+        biomeEditorContent.setManaged(true);
+        biomeEditorContent.setVisible(true);
+
         var currentSelection = biomeSelectionController.getCurrentSelectedBiome();
 
         if (biomeTableView.hasUnsavedChanges() && oldSelection != null && !oldSelection.equals(currentSelection)) {
 
             showUnsavedChangesDialog(() -> {
+
+                        biomeTitle.setText(currentSelection);
                         biomeSelectionController.confirmSelectionChange();
                         biomeSelectionController.loadNewBiomeData(currentSelection);
                     },
                     () -> {
+                        biomeTitle.setText(oldSelection);
                         biomeTableView.resetChanges(biomeTableView.getSelectedColumns());
                         colorEditorController.resetAndHideUi();
                         biomeSelectionController.confirmSelectionChange();
                         biomeSelectionController.loadNewBiomeData(currentSelection);
                     },
                     () -> {
+                        biomeTitle.setText(oldSelection);
                         biomeSelectionController.revertSelection();
             });
 
         } else {
 
+            biomeTitle.setText(currentSelection);
             colorEditorController.resetAndHideUi();
             biomeSelectionController.confirmSelectionChange();
             biomeSelectionController.loadNewBiomeData(currentSelection);
@@ -218,6 +241,23 @@ public class ArdaBiomesController {
             else if (response == resetButton) onReset.run();
             else onCancel.run();
         });
+    }
+
+    /**
+     * Clears the UI components when a new resource pack is loaded.
+     * @param filePath the path of the loaded resource pack.
+     */
+    private void clearUiOnResourcePackLoad(String filePath) {
+
+        Stage stage = (Stage) rootPane.getScene().getWindow();
+        stage.setTitle("ArdaBiomes Editor - " + filePath);
+
+        biomeTableView.clear();
+        colorEditorController.resetAndHideUi();
+        biomeSelectionController.resetSelection();
+
+        biomeEditorContent.setManaged(false);
+        biomeEditorContent.setVisible(false);
     }
 
     /**

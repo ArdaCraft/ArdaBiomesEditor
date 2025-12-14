@@ -199,7 +199,7 @@ public class BiomeSelectorController {
 
         Map<String, List<String>> colorMappings = new HashMap<>();
 
-        for (Modifier modifier : resourcePackService.getBlockModifiers().values()) {
+        for (Modifier modifier : resourcePackService.getColorModifiers().values()) {
             if (modifier.getModifier() != null) {
                 colorMappings.put(modifier.getName(), ModifierService.getColorsForBiome(modifier, biomeId));
             }
@@ -209,14 +209,17 @@ public class BiomeSelectorController {
     }
 
     /**
-     * Resets the biome table view to reflect the current biome selection.
-     * If a biome is currently selected, it re-selects it in the ListView.
+     * Resets the current selection in the ListView.
      */
-    public void resetBiomeTableView() {
-        var currentBiome = biomeList.getSelectionModel().getSelectedItem();
-        if (currentBiome != null) biomeList.getSelectionModel().select(currentBiome);
+    public void resetSelection() {
+        previousSelection = null;
+        biomeList.getSelectionModel().clearSelection();
     }
 
+    /**
+     * Retrieves the currently selected biome from the ListView.
+     * @return The name of the currently selected biome.
+     */
     public String getCurrentSelectedBiome() {
         return biomeList.getSelectionModel().getSelectedItem();
     }

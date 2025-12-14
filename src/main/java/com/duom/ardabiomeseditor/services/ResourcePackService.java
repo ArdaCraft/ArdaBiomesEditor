@@ -61,12 +61,23 @@ public class ResourcePackService {
     }
 
     /**
-     * Retrieves the map of block modifiers.
+     * Retrieves the map of all color modifiers.
      *
-     * @return A map of block modifiers.
+     * @return A map of every color modifiers.
      */
-    public Map<String, Modifier> getBlockModifiers() {
-        return loader != null ? loader.getBlockModifiers() : new HashMap<>();
+    public Map<String, Modifier> getColorModifiers() {
+
+        Map<String, Modifier> allModifiers = new HashMap<>();
+
+        if (loader != null) {
+
+            allModifiers.putAll(loader.getBlockModifiers());
+            allModifiers.putAll(loader.getDimensionsModifiers());
+            allModifiers.putAll(loader.getFluidModifiers());
+            allModifiers.putAll(loader.getParticleModifiers());
+        }
+
+        return allModifiers;
     }
 
     /**
