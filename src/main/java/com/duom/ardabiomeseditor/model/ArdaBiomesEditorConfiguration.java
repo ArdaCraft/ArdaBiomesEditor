@@ -5,15 +5,15 @@ import java.util.List;
 
 /**
  * Configuration class for the Arda Biomes Editor application.
- *
+ * <p>
  * This class manages the application's configuration settings, including
  * the list of recently accessed files and the maximum number of recent files
  * to retain.
  */
 public class ArdaBiomesEditorConfiguration {
 
+    public static final int MAX_RECENT_FILES = 10;
     private List<String> recentFiles = new ArrayList<>();
-    private final int maxRecentFiles = 10;
 
     /**
      * Retrieves the list of recently accessed files.
@@ -31,14 +31,5 @@ public class ArdaBiomesEditorConfiguration {
      */
     public void setRecentFiles(List<String> recentFiles) {
         this.recentFiles = recentFiles;
-    }
-
-    /**
-     * Retrieves the maximum number of recent files to retain.
-     *
-     * @return The maximum number of recent files.
-     */
-    public int getMaxRecentFiles() {
-        return maxRecentFiles;
     }
 }

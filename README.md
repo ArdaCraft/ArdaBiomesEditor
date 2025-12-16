@@ -9,12 +9,37 @@ Download the latest release and unzip the archive. Run `ArdaBiomesEditor.exe` to
 
 ## Usage
 
-- `File` → `Open...` to load the biome mappings from a [resource pack](https://github.com/ArdaCraft/ACRP).
-- The list of biomes are displayed on the left column. The color key for the biome is displayed on the center pane.
-- A biome color key must be saved in the resource pack before editing a new biome (`File` → `Save` or `Save` on the bottom left column)
+- `File` → `Open Folder...` to load a [resource pack](https://github.com/ArdaCraft/ACRP). The resource pack needs to contain [polytone](https://github.com/MehVahdJukaar/polytone) definitions, see the [Polytone Sample Pack](https://github.com/MehVahdJukaar/polytone/tree/1.21.1/polytone_sample_pack) for a working example.
 
-> [!IMPORTANT]
-> Editing a resource pack while the game is running **is possible** but a new resource pack version will be created in the same folder if the resource pack is in use. The app will automatically switch to the new version.
+### Resource Tree
+
+The left pane displays the resource tree of the loaded resource pack. The tree can be filtered using the dropdown.
+
+The displayed resources can be one of the following types:
+- <img src="src/main/resources/assets/icons/mdi/mdi--folder.svg" alt="Folder icon" width="16" height="16"/> Directory : a folder
+- <img src="src/main/resources/assets/icons/mdi/mdi--cog.svg" alt="Modifier icon" width="16" height="16"/> Modifier : a modifier json definition
+- <img src="src/main/resources/assets/icons/mdi/mdi--color.svg" alt="Colormap icon" width="16" height="16"/> Colormap : a colormap json definition (inlined or standalone)
+- <img src="src/main/resources/assets/icons/mdi/mdi--map-legend.svg" alt="Biome mapper icon" width="16" height="16"/> Biome mapper : a biome id mapper (inlined or standalone)
+
+### Colormap Editor
+
+The colormap editor allows editing of colormaps and biome mappings.
+
+#### Center panel
+
+- When a **colormap** resource is selected, the editor displays the associated texture and its mappings (if defined in json).
+- When a **biome** mapper resource is selected, the editor display each corresponding mapped biome from each colormap referencing this mapper.
+
+#### Right panel
+
+- The right panel displays the list of mappings (columns) of the colormap.
+- When one or multiple mappings are selected, a Hue/Saturation/Brightness color picker is displayed to edit the selected mapping(s).
+
+#### Bottom toolbar
+
+- Allow zooming in / out of the colormap texture.
+- Shows the current selection 
+- <img src="src/main/resources/assets/icons/mdi/mdi--checkerboard.svg" alt="Biome mapper icon" width="16" height="16"/> Displays a checker pattern (for transparency) behind the colormap texture.
 
 ## Packaging and release
 

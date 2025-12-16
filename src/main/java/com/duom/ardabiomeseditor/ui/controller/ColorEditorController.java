@@ -1,16 +1,23 @@
 package com.duom.ardabiomeseditor.ui.controller;
 
-import com.duom.ardabiomeseditor.services.I18nService;
-import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
-import javafx.animation.PauseTransition;
+import com.duom.ardabiomeseditor.services.ColorEditorService;
+import com.duom.ardabiomeseditor.services.IconResourceService;
+import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.value.ChangeListener;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
-import javafx.scene.control.ColorPicker;
-import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
-import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.util.Duration;
+import javafx.geometry.Pos;
+import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.util.converter.NumberStringConverter;
+
+import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Controller for managing the color editor functionality in the application.
@@ -18,25 +25,30 @@ import javafx.util.Duration;
  */
 public class ColorEditorController {
 
-    @FXML private ColorPicker colorPicker;
+    /* UI Elements */
+
     @FXML private Slider hueSlider;
     @FXML private Slider saturationSlider;
-    @FXML private Slider lightnessSlider;
-    @FXML private Label hueLabel;
-    @FXML private Label saturationLabel;
-    @FXML private Label lightnessLabel;
-    @FXML private VBox cellColorSettings;
-    @FXML private Label cellColorSettingsHeader;
-    @FXML private Label cellColorSettingsSubtitle;
-    @FXML private VBox columnHsvSettings;
-    @FXML private Label columnHsvSettingsHeader;
-    @FXML private Label columnHsvSettingsSubtitle;
+    @FXML private Slider brightnessSlider;
+    @FXML private Slider opacitySlider;
+    @FXML private TextField hueField;
+    @FXML private TextField saturationField;
+    @FXML private TextField brightnessField;
+    @FXML private TextField opacityField;
+    @FXML private ListView<ColumnItem> columnsList;
+    @FXML private TitledPane hsbPane;
 
-    private BiomeTableView biomeTableView;
+    /* Listeners */
+
     private ChangeListener<Number> hueListener;
     private ChangeListener<Number> saturationListener;
-    private ChangeListener<Number> lightnessListener;
-    private PauseTransition hslDebouncer;
+    private ChangeListener<Number> brightnessListener;
+    private ChangeListener<Number> opacityListener;
+
+    /* Callbacks */
+
+    private Consumer<ColorEditorService.HSB> hsbAdjustmentConsumer;
+    private Consumer<Double> opacityAdjustmentConsumer;
 
     /**
      * Initializes the controller. Sets up bindings and listeners for UI components.
@@ -44,168 +56,316 @@ public class ColorEditorController {
     @FXML
     public void initialize() {
 
-        cellColorSettings.managedProperty().bind(cellColorSettings.visibleProperty());
-        columnHsvSettings.managedProperty().bind(columnHsvSettings.visibleProperty());
-
-        hslDebouncer = new PauseTransition(Duration.millis(500));
-        hslDebouncer.setOnFinished(event -> applyLiveHSLAdjustments());
-
         hueListener = (obs, old, val) -> {
-            hueLabel.setText(String.format("%.0f°", val.doubleValue()));
-            applyLiveHSLAdjustmentsImmediate();
-            hslDebouncer.playFromStart();
+            hueField.setText(String.format("%.0f°", val.doubleValue()));
+            propagateHslAdjustments();
         };
+        bindHsbTextFormatter(hueField, hueSlider);
 
         saturationListener = (obs, old, val) -> {
-            saturationLabel.setText(String.format("%.0f%%", val.doubleValue()));
-            applyLiveHSLAdjustmentsImmediate();
-            hslDebouncer.playFromStart();
+            saturationField.setText(String.format("%.0f%%", val.doubleValue()));
+            propagateHslAdjustments();
         };
+        bindHsbTextFormatter(saturationField, saturationSlider);
 
-        lightnessListener = (obs, old, val) -> {
-            lightnessLabel.setText(String.format("%.0f%%", val.doubleValue()));
-            applyLiveHSLAdjustmentsImmediate();
-            hslDebouncer.playFromStart();
+        brightnessListener = (obs, old, val) -> {
+            brightnessField.setText(String.format("%.0f%%", val.doubleValue()));
+            propagateHslAdjustments();
         };
+        bindHsbTextFormatter(brightnessField, brightnessSlider);
 
-        initHslSliderListeners();
+        opacityListener = (obs, old, val) -> {
+            opacityField.setText(String.format("%.0f%%", val.doubleValue()));
+            propagateOpacityAdjustment();
+        };
+        bindHsbTextFormatter(opacityField, opacitySlider);
+
+        initHsbSliderListeners();
+        initColumnsList();
+        toggleHsbEditorVisibility(false);
     }
 
-    private void initHslSliderListeners() {
+    /**
+     * Propagates the current HSL adjustments to the registered consumer.
+     */
+    private void propagateHslAdjustments() {
+
+        double hueShift = hueSlider.getValue();
+        double satShift = saturationSlider.getValue() / 100.0;
+        double lightShift = brightnessSlider.getValue() / 100.0;
+
+        this.hsbAdjustmentConsumer.accept(new ColorEditorService.HSB(hueShift, satShift, lightShift));
+    }
+
+    /**
+     * Binds a TextField to a Slider using a TextFormatter for HSB values.
+     *
+     * @param textField The TextField to bind.
+     * @param slider    The Slider to bind.
+     */
+    private void bindHsbTextFormatter(TextField textField, Slider slider) {
+        TextFormatter<Number> formatter = new TextFormatter<Number>(
+                new NumberStringConverter(), 0d,
+                change -> {
+                    String newText = change.getControlNewText();
+                    // Allow empty (user deleting)
+                    if (newText.isEmpty())
+                        return change;
+
+                    // Allow digits with optional %
+                    if (newText.matches("[-+]?\\d{0,3}[°%]?"))
+                        return change;
+
+                    return null;
+                }
+        );
+        slider.valueProperty().bindBidirectional(formatter.valueProperty());
+
+        textField.setTextFormatter(formatter);
+    }
+
+    private void propagateOpacityAdjustment() {
+
+        double opacityShift = opacitySlider.getValue() / 100.0;
+
+        this.opacityAdjustmentConsumer.accept(opacityShift);
+    }
+
+    /**
+     * Initializes listeners for the HSL sliders.
+     */
+    private void initHsbSliderListeners() {
 
         hueSlider.valueProperty().addListener(hueListener);
         saturationSlider.valueProperty().addListener(saturationListener);
-        lightnessSlider.valueProperty().addListener(lightnessListener);
+        brightnessSlider.valueProperty().addListener(brightnessListener);
+        opacitySlider.valueProperty().addListener(opacityListener);
+
+        addSliderResetListener(hueSlider);
+        addSliderResetListener(saturationSlider);
+        addSliderResetListener(brightnessSlider);
+        addSliderResetListener(opacitySlider);
     }
 
     /**
-     * Sets the BiomeTableView instance for this controller.
+     * Initializes the columns list with custom cell factory and context menu.
+     */
+    private void initColumnsList() {
+
+        columnsList.setCellFactory(lv -> new ColumnCell());
+        columnsList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+        ContextMenu contextMenu = new ContextMenu();
+        MenuItem selectionToggle = new MenuItem("Toggle Selection");
+        MenuItem visibilityToggle = new MenuItem("Toggle Visibility");
+        MenuItem selectAll = new MenuItem("Select All");
+        MenuItem deselectAll = new MenuItem("Deselect All");
+        MenuItem showAll = new MenuItem("Show All");
+        MenuItem hideAll = new MenuItem("Hide All");
+
+        selectionToggle.setOnAction(e -> {
+            ObservableList<ColumnItem> selected = columnsList.getSelectionModel().getSelectedItems();
+            selected.forEach(item -> item.selected.set(!item.selected.get()));
+        });
+
+        visibilityToggle.setOnAction(e -> {
+            ObservableList<ColumnItem> selected = columnsList.getSelectionModel().getSelectedItems();
+            selected.forEach(item -> item.visible.set(!item.visible.get()));
+        });
+
+        selectAll.setOnAction(e -> {
+            columnsList.getItems().forEach(item -> item.selected.set(true));
+        });
+
+        deselectAll.setOnAction(e -> {
+            columnsList.getItems().forEach(item -> item.selected.set(false));
+        });
+
+        showAll.setOnAction(e -> {
+            columnsList.getItems().forEach(item -> item.visible.set(true));
+        });
+
+        hideAll.setOnAction(e -> {
+            columnsList.getItems().forEach(item -> item.visible.set(false));
+        });
+
+        contextMenu.getItems().addAll(visibilityToggle,
+                selectionToggle,
+                new SeparatorMenuItem(),
+                selectAll,
+                deselectAll,
+                new SeparatorMenuItem(),
+                showAll,
+                hideAll);
+
+        columnsList.setContextMenu(contextMenu);
+    }
+
+    /**
+     * Toggles the visibility of the HSB editor pane.
      *
-     * @param biomeTableView The BiomeTableView instance.
+     * @param isSelected True to show the HSB editor, false to hide it.
      */
-    public void setBiomeTableView(BiomeTableView biomeTableView) {
-        this.biomeTableView = biomeTableView;
+    public void toggleHsbEditorVisibility(Boolean isSelected) {
+
+        hsbPane.setExpanded(isSelected);
+        hsbPane.setDisable(!isSelected);
+    }
+
+    private void addSliderResetListener(Slider slider) {
+
+        // Reset to default on double-click
+        Platform.runLater(() -> {
+            // Look up the thumb node
+            var thumb = slider.lookup(".thumb");
+
+            if (thumb != null) {
+                thumb.addEventHandler(MouseEvent.MOUSE_CLICKED, event -> {
+                    if (event.getClickCount() == 2) {
+                        slider.setValue((Math.abs(slider.getMax()) - Math.abs(slider.getMin())) / 2);
+                        event.consume();
+                    }
+                });
+            }
+        });
     }
 
     /**
-     * Resets the HSL sliders to their default values.
+     * Sets the HSB slider values based on the provided HSL object.
+     *
+     * @param hsb The HSL values to set on the sliders.
      */
-    @FXML
-    public void onResetHSL() {
-        hueSlider.setValue(0);
-        saturationSlider.setValue(0);
-        lightnessSlider.setValue(0);
-        hueLabel.setText("0");
-        saturationLabel.setText("0");
-        lightnessLabel.setText("0");
-    }
-
-    public void silentResetHsl(){
+    public void setHsbSliders(ColorEditorService.HSB hsb) {
 
         hueSlider.valueProperty().removeListener(hueListener);
         saturationSlider.valueProperty().removeListener(saturationListener);
-        lightnessSlider.valueProperty().removeListener(lightnessListener);
+        brightnessSlider.valueProperty().removeListener(brightnessListener);
 
-        onResetHSL();
+        hueSlider.setValue(Math.round(hsb.hue()));
+        saturationSlider.setValue(Math.round(hsb.saturation() * 100));
+        brightnessSlider.setValue(Math.round(hsb.brightness() * 100));
 
-        initHslSliderListeners();
+        initHsbSliderListeners();
     }
 
-    public void resetAndHideUi() {
-        onResetHSL();
-        hideUi();
-    }
+    public void setOpacitySlider(double opacity) {
 
-    /**
-     * Handles changes in the ColorPicker. Updates the selected cell's color.
-     */
-    @FXML
-    public void onColorPickerChange() {
-        Color newColor = colorPicker.getValue();
-        var selectedCells = biomeTableView.getSelectedCells();
-
-        if (!selectedCells.isEmpty() && newColor != null) {
-            var cell = selectedCells.getFirst();
-
-            String hexColor = String.format("#%02X%02X%02X",
-                    (int)(newColor.getRed() * 255),
-                    (int)(newColor.getGreen() * 255),
-                    (int)(newColor.getBlue() * 255));
-
-            cell.setCurrentColor(hexColor);
-            biomeTableView.refresh();
-        }
+        opacitySlider.valueProperty().removeListener(opacityListener);
+        opacitySlider.setValue(Math.round(opacity * 100));
+        opacitySlider.valueProperty().addListener(opacityListener);
     }
 
     /**
-     * Handles table click events. Updates the UI based on the selected cell or column.
+     * Sets the consumer that will handle HSB adjustments.
      *
-     * @param event The BiomeTableClickEvent triggered by the table click.
+     * @param hsbAdjustmentConsumer The consumer to handle HSB adjustments.
      */
-    public void handleTableClick(BiomeTableView.BiomeTableClickEvent event) {
+    public void setHsbAdjustmentConsumer(Consumer<ColorEditorService.HSB> hsbAdjustmentConsumer) {
+        this.hsbAdjustmentConsumer = hsbAdjustmentConsumer;
+    }
 
-        silentResetHsl();
+    /**
+     * Sets the consumer that will handle opacity adjustments.
+     *
+     * @param opacityAdjustmentConsumer The consumer to handle opacity adjustments.
+     */
+    public void setOpacityAdjustmentConsumer(Consumer<Double> opacityAdjustmentConsumer) {
+        this.opacityAdjustmentConsumer = opacityAdjustmentConsumer;
+    }
 
-        if (BiomeTableView.BiomeTableClickEventType.CELL == event.type()) {
-            var selectedCells = biomeTableView.getSelectedCells();
+    /**
+     * Sets the list of columns to be displayed in the columns list view.
+     *
+     * @param columns The list of column items to display.
+     */
+    public void setColumnsList(List<ColumnItem> columns) {
+        columnsList.getItems().clear();
+        columnsList.getItems().setAll(columns);
+        columnsList.refresh();
+    }
 
-            if (selectedCells.size() == 1) {
-                var cell = selectedCells.getFirst();
-                cellColorSettingsHeader.setText(I18nService.get("ardabiomeseditor.biometableview.single.cell.select.label"));
-                colorPicker.setValue(Color.web(cell.getCurrentColor()));
+    /* Data elements */
 
-                cellColorSettingsSubtitle.setText(event.eventData());
-                cellColorSettings.setVisible(true);
-                cellColorSettingsHeader.setVisible(true);
-                columnHsvSettings.setVisible(false);
-                columnHsvSettingsHeader.setVisible(false);
-            }
-        } else if (BiomeTableView.BiomeTableClickEventType.HEADER == event.type()) {
-            var selectedColumns = biomeTableView.getSelectedColumns();
+    /**
+     * Data class representing a column item with selection and visibility properties.
+     *
+     * @param itemName item name
+     * @param index    item index
+     * @param selected selection property
+     * @param visible  visibility property
+     */
+    public record ColumnItem(String itemName, int index, BooleanProperty selected, BooleanProperty visible) {
+    }
 
-            columnHsvSettingsHeader.setText(I18nService.get("ardabiomeseditor.biometableview.column.adjustments.header"));
-            columnHsvSettingsSubtitle.setText(event.eventData());
+    /**
+     * List cell for displaying column items with selection and visibility toggles.
+     */
+    private static class ColumnCell extends ListCell<ColumnItem> {
 
-            columnHsvSettings.setVisible(!selectedColumns.isEmpty());
-            columnHsvSettingsHeader.setVisible(!selectedColumns.isEmpty());
-            cellColorSettings.setVisible(false);
-            cellColorSettingsHeader.setVisible(false);
-        } else {
-            hideUi();
+        private final Label nameLabel = new Label();
+        private final ToggleButton selectBtn = new ToggleButton();
+        private final ToggleButton visibilityBtn = new ToggleButton();
+        private final Region spacer = new Region();
+        private final HBox root = new HBox(10, nameLabel, spacer, selectBtn, visibilityBtn);
+        private ColumnItem previousItem;
+
+        public ColumnCell() {
+
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            root.setAlignment(Pos.CENTER_LEFT);
+
+            selectBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            selectBtn.graphicProperty().bind(
+                    Bindings.when(selectBtn.selectedProperty())
+                            .then(IconResourceService.getIcon(IconResourceService.IconType.CHECKBOX_CHECKED))
+                            .otherwise(IconResourceService.getIcon(IconResourceService.IconType.CHECKBOX_BLANK)));
+
+            visibilityBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            visibilityBtn.graphicProperty().bind(
+                    Bindings.when(visibilityBtn.selectedProperty())
+                            .then(IconResourceService.getIcon(IconResourceService.IconType.VISIBILITY_ON))
+                            .otherwise(IconResourceService.getIcon(IconResourceService.IconType.VISIBILITY_OFF)));
+
+            // Ensure name label fits with extra padding
+            nameLabel.maxWidthProperty().bind(
+                    widthProperty().subtract(selectBtn.widthProperty())
+                            .subtract(visibilityBtn.widthProperty())
+                            .subtract(spacer.widthProperty())
+                            .subtract(10));
         }
 
-        biomeTableView.refresh();
-    }
+        @Override
+        protected void updateItem(ColumnItem item, boolean empty) {
+            super.updateItem(item, empty);
 
-    /**
-     * Hides the color and HSL adjustment UI components.
-     */
-    private void hideUi() {
-        columnHsvSettings.setVisible(false);
-        columnHsvSettingsHeader.setVisible(false);
-        cellColorSettings.setVisible(false);
-        cellColorSettingsHeader.setVisible(false);
-    }
 
-    /**
-     * Immediately applies HSL adjustments without triggering a full table refresh.
-     * This updates the color data instantly while allowing the debouncer to handle the visual refresh.
-     */
-    private void applyLiveHSLAdjustmentsImmediate() {
-        double hueShift = hueSlider.getValue();
-        double satShift = saturationSlider.getValue() / 100.0;
-        double lightShift = lightnessSlider.getValue() / 100.0;
+            // Unbind previous item properties - list cells are reused
+            if (previousItem != null) {
 
-        var selectedCells = biomeTableView.getSelectedCells();
-        selectedCells.forEach(cell -> cell.adjustHSL(hueShift, satShift, lightShift));
-    }
+                selectBtn.selectedProperty().unbindBidirectional(previousItem.selected);
+                visibilityBtn.selectedProperty().unbindBidirectional(previousItem.visible);
+                root.setOpacity(1d);
+            }
 
-    /**
-     * Applies live HSL adjustments to the selected columns in the table and refresh.
-     */
-    private void applyLiveHSLAdjustments() {
+            if (empty || item == null) {
 
-        applyLiveHSLAdjustmentsImmediate();
-        biomeTableView.refresh();
+                root.setOpacity(1d);
+                setGraphic(null);
+                previousItem = null;
+
+            } else {
+
+                nameLabel.setText(item.itemName);
+
+                selectBtn.selectedProperty().bindBidirectional(item.selected);
+                visibilityBtn.selectedProperty().bindBidirectional(item.visible);
+                visibilityBtn.selectedProperty().addListener((observableValue, oldVal, newVal) -> {
+                    if (newVal != null && newVal) root.setOpacity(1d);
+                    else root.setOpacity(0.5d);
+                });
+                previousItem = item;
+                setGraphic(root);
+            }
+        }
     }
 }

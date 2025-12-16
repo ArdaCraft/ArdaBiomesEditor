@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.duom.ardabiomeseditor.ui.controller.ColorEditorController"
+      styleClass="colormap-editor">
+
+    <VBox>
+        <VBox>
+            <TitledPane text="Columns" maxHeight="600" animated="false">
+
+                <VBox minHeight="300">
+                    <ListView fx:id="columnsList" styleClass="colormap-editor-column-list"/>
+                </VBox>
+
+            </TitledPane>
+            <TitledPane text="HSB" fx:id="hsbPane" animated="false">
+                <VBox>
+                    <Label text="Hue">
+                        <VBox.margin>
+                            <Insets left="5" />
+                        </VBox.margin>
+                    </Label>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Slider fx:id="hueSlider" styleClass="hue-slider" min="-180" max="180" HBox.hgrow="ALWAYS"/>
+                        <TextField fx:id="hueField" text="0°" prefWidth="60" minWidth="10" />
+                    </HBox>
+
+                    <Label text="Saturation">
+                        <VBox.margin>
+                            <Insets top="10" left="5" />
+                        </VBox.margin>
+                    </Label>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Slider fx:id="saturationSlider" styleClass="saturation-slider" min="-100" HBox.hgrow="ALWAYS"/>
+                        <TextField fx:id="saturationField" text="0%" prefWidth="60" minWidth="10" />
+                    </HBox>
+
+                    <Label text="Brightness">
+                        <VBox.margin>
+                            <Insets top="10" left="5" />
+                        </VBox.margin>
+                    </Label>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Slider fx:id="brightnessSlider" styleClass="brightness-slider" min="-100" HBox.hgrow="ALWAYS"/>
+                        <TextField fx:id="brightnessField" text="0%" prefWidth="60" minWidth="10"/>
+                    </HBox>
+
+                    <Label text="Opacity">
+                        <VBox.margin>
+                            <Insets top="10" left="5" />
+                        </VBox.margin>
+                    </Label>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Slider fx:id="opacitySlider" styleClass="brightness-slider" HBox.hgrow="ALWAYS"/>
+                        <TextField fx:id="opacityField" text="0%" prefWidth="60" minWidth="10"/>
+                    </HBox>
+                </VBox>
+            </TitledPane>
+        </VBox>
+    </VBox>
+
+    <Region VBox.vgrow="ALWAYS" />
+</VBox>

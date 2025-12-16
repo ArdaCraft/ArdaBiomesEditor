@@ -5,12 +5,12 @@ import com.duom.ardabiomeseditor.services.I18nService;
 import com.duom.ardabiomeseditor.services.ResourcePackService;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.text.Text;
 import javafx.stage.DirectoryChooser;
-import javafx.stage.FileChooser;
 
 import java.awt.*;
 import java.io.IOException;
@@ -27,14 +27,34 @@ import java.util.function.Consumer;
  */
 public class FileManagementController {
 
-    @FXML private Menu recentFilesMenu;
+    @FXML
+    private Menu recentFilesMenu;
 
     private ResourcePackService resourcePackService;
-    private Consumer<Path> onFileLoadedCallback;
+    private Consumer<Boolean> onFileLoadedCallback;
     private Consumer<Runnable> saveCallback;
     private Consumer<Runnable> menuExitCallback;
     private Consumer<Void> showAllCallback;
     private Consumer<String> resourcePackLoadCallback;
+
+    /**
+     * Displays an error popup with the specified title, header, and content.
+     *
+     * @param title   The title of the popup.
+     * @param header  The header text of the popup.
+     * @param content The content text of the popup.
+     */
+    private static void showErrorPopup(String title, String header, String content) {
+
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+
+        alert.getButtonTypes().setAll(new ButtonType(I18nService.get("ardabiomeseditor.generic.ok")));
+
+        alert.showAndWait();
+    }
 
     /**
      * Initializes the controller. Updates the recent files menu.
@@ -59,29 +79,15 @@ public class FileManagementController {
      *
      * @param callback The callback function.
      */
-    public void setOnFileLoadedCallback(Consumer<Path> callback) {
+    public void setOnFileLoadedCallback(Consumer<Boolean> callback) {
         this.onFileLoadedCallback = callback;
-    }
-
-    /**
-     * Opens a file chooser dialog to select a ZIP file and loads the selected resource pack.
-     */
-    @FXML
-    public void onOpenZip() {
-        FileChooser chooser = new FileChooser();
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("ZIP Files", "*.zip"));
-
-        var file = chooser.showOpenDialog(null);
-        if (file != null) {
-            loadResourcePack(file.toPath(), false);
-        }
     }
 
     /**
      * Opens a file chooser dialog to select a folder and loads the selected resource pack.
      */
     @FXML
-    public void onOpenFolder(){
+    public void onOpenFolder() {
 
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Select Resource Pack Folder");
@@ -109,17 +115,15 @@ public class FileManagementController {
         try {
 
             resourcePackService.readResourcePack(filePath);
-        } catch (MissingResourceException mre){
+        } catch (MissingResourceException mre) {
 
-            showErrorPopup(filePath,
-                    I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error_title"),
+            showErrorPopup(I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error_title"),
                     I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error", filePath.toString()),
                     I18nService.get("ardabiomeseditor.filmanagement.error.missing_directory", mre.getKey(), mre.getClassName()));
 
         } catch (IOException ioe) {
 
-            showErrorPopup(filePath,
-                    I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error_title"),
+            showErrorPopup(I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error_title"),
                     I18nService.get("ardabiomeseditor.filmanagement.error.rp_loading_error", filePath.toString()),
                     I18nService.get("ardabiomeseditor.filmanagement.error.rp_io_loading_error"));
         }
@@ -127,41 +131,12 @@ public class FileManagementController {
         Text editingText = new Text("Editing ");
         editingText.setStyle("-fx-font-weight: bold;");
 
-        Hyperlink pathLink = new Hyperlink(filePath.toAbsolutePath().toString());
-        pathLink.setStyle("-fx-text-fill: orange; -fx-underline: false;");
-        pathLink.setOnAction(e -> openFileLocation(filePath));
-
         if (!reload) {
             ArdaBiomesEditor.CONFIG.addRecentFile(filePath.toAbsolutePath().toString());
             updateRecentFilesMenu();
         }
 
-        if (onFileLoadedCallback != null) onFileLoadedCallback.accept(filePath);
-    }
-
-    private static void showErrorPopup(Path filePath, String title, String header, String content) {
-
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(title);
-        alert.setHeaderText(header);
-        alert.setContentText(content);
-
-        alert.getButtonTypes().setAll(new ButtonType(I18nService.get("ardabiomeseditor.generic.ok")));
-
-        alert.showAndWait();
-    }
-
-    /**
-     * Opens the file location of the specified file in the system's file explorer.
-     *
-     * @param filePath The path to the file.
-     */
-    private void openFileLocation(Path filePath) {
-        try {
-            Desktop.getDesktop().open(filePath.getParent().toFile());
-        } catch (IOException e) {
-            ArdaBiomesEditor.LOGGER.error("Failed to open file location", e);
-        }
+        if (onFileLoadedCallback != null) onFileLoadedCallback.accept(reload);
     }
 
     /**
@@ -200,7 +175,9 @@ public class FileManagementController {
             for (String path : recentFiles) {
 
                 MenuItem item = new MenuItem(path);
-                item.setOnAction(e -> {if (!openRecentFile(path)) recentFilesMenu.getItems().remove(item);});
+                item.setOnAction(e -> {
+                    if (!openRecentFile(path)) recentFilesMenu.getItems().remove(item);
+                });
                 recentFilesMenu.getItems().add(item);
             }
         }
@@ -223,13 +200,8 @@ public class FileManagementController {
         }
     }
 
-    @FXML
-    private void onShowAll(){
-        showAllCallback.accept(null);
-    }
-
     /**
-     * Saves biome edits by invoking the save callback.
+     * Saves biome edits menu option.
      */
     @FXML
     private void onSaveBiomeEdits() {
@@ -237,10 +209,10 @@ public class FileManagementController {
     }
 
     /**
-     * Exits the application by invoking the menu exit callback.
+     * Exits the application menu option.
      */
     @FXML
-    private void onExitApp(){
+    private void onExitApp() {
         menuExitCallback.accept(Platform::exit);
     }
 
@@ -286,18 +258,11 @@ public class FileManagementController {
     }
 
     /**
-     * Sets the callback to be executed when showing all biomes.
-     *
-     * @param showAllCallback The show all callback function.
-     */
-    public void setShowAllCallback(Consumer<Void> showAllCallback) {
-        this.showAllCallback = showAllCallback;
-    }
-
-    /**
      * Sets the callback to be executed when a resource pack is loaded.
      *
      * @param resourcePackLoadCallback The resource pack load callback function.
      */
-    public void setResourcePackLoadCallback(Consumer<String> resourcePackLoadCallback) { this.resourcePackLoadCallback = resourcePackLoadCallback; }
+    public void setResourcePackLoadCallback(Consumer<String> resourcePackLoadCallback) {
+        this.resourcePackLoadCallback = resourcePackLoadCallback;
+    }
 }

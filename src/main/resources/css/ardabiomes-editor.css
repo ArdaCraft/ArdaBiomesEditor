@@ -1,0 +1,170 @@
+.svg-icon{
+    -fx-background-color: red;
+}
+
+/* Resource selector */
+
+.resource-selector .title{
+    -fx-font-weight: bold;
+}
+
+.resource-selector {
+
+    -fx-border-color: transparent #30363d transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.resource-selector TreeView {
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+}
+
+/* Colormap */
+
+.colormap .pixelCanvas{
+    -fx-background-color: black;
+}
+
+.colormap .pixelCanvas BorderPane:checker{
+    -fx-background-image: url("../assets/checker.png");
+    -fx-background-repeat: repeat;
+}
+
+.colormap .bottomToolbar Button,
+.colormap .bottomToolbar ToggleButton{
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.colormap .bottomToolbar Button:hover,
+.colormap .bottomToolbar ToggleButton:hover,
+.colormap .bottomToolbar ToggleButton:selected{
+    -fx-cursor: hand;
+    -fx-background-color: #30363d;
+}
+
+.colormap .bottomToolbar Slider .thumb {
+     -fx-cursor: hand;
+     -fx-pref-width:10;
+     -fx-pref-height:10;
+}
+
+.bottomToolbar .selection-info {
+    -fx-text-fill: #FCB620;
+}
+
+.bottomToolbar .hover-info {
+    -fx-font-weight: bold;
+}
+
+.colormap .indexColumn {
+    -fx-background-color: #0D1117;
+}
+
+.colormap .indexColumn Label {
+    -fx-padding: 0 0 2 0;
+    -fx-border-color: #191D23;
+    -fx-border-width: 0 0 2 0;
+    -fx-font-weight: bold;
+}
+
+.colormap-column-header {
+    -fx-padding: 10 0 10 0;
+}
+
+.colormap-column-header .context-menu {
+    -fx-font-weight: normal;
+    -fx-font-size: 14px;
+}
+
+.colormap-column-header Label {
+    -fx-border-color: #191D23 #191D23 #191D23 #0D1117;
+    -fx-border-width: 1 1 0 5;
+    -fx-font-weight:bold;
+}
+
+.colormap-column-header Label:modified {
+    -fx-border-color: #191D23 #191D23 #191D23 #FCB620;
+    -fx-border-width: 1 1 0 5;
+}
+
+.colormap .headers-insert-line {
+    -fx-background-color: #FCB620;
+}
+
+.colormap-column-header Label:hover,
+.colormap-column-header Label:selected{
+    -fx-cursor: hand;
+    -fx-text-fill: #161B22;
+}
+
+.colormap-column-header Label:selected{
+    -fx-background-color: #F8C456;
+}
+
+.colormap-column-header Label:hover,
+.colormap-column-header Label:hover:selected{
+    -fx-background-color: #FCB620;
+}
+
+.hovered-name {
+    -fx-fill: white;
+}
+
+.selected-info {
+    -fx-fill: orange;
+}
+
+/* Colormap Editor pane */
+
+.colormap-editor{
+    -fx-spacing: 10;
+}
+.colormap-editor Slider .track {
+    -fx-pref-height: 7;
+}
+
+.colormap-editor Slider .thumb {
+     -fx-cursor: hand;
+}
+
+.colormap-editor .hue-slider .track {
+     -fx-background-color: linear-gradient(
+         to right,
+         red, yellow, lime, cyan, blue, magenta, red
+     );
+}
+
+.colormap-editor .saturation-slider .track {
+     -fx-background-color: linear-gradient(
+         to right,
+         #808080,
+         #909080,
+         #80A081,
+         #7EADB1,
+         #3030E0,
+         #F010EA,
+         red
+     );
+}
+
+.colormap-editor .brightness-slider .track {
+     -fx-background-color: linear-gradient(
+         to right,
+         black, white
+     );
+}
+
+.colormap-editor-column-list ToggleButton {
+    -fx-cursor: hand;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.colormap-editor-column-list ToggleButton:selected {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}

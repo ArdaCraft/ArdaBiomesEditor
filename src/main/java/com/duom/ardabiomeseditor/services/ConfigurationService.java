@@ -23,7 +23,7 @@ public class ConfigurationService {
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Path configPath;
-    private ArdaBiomesEditorConfiguration  configuration;
+    private ArdaBiomesEditorConfiguration configuration;
 
     /**
      * Constructor for the ConfigurationService.
@@ -80,6 +80,30 @@ public class ConfigurationService {
     }
 
     /**
+     * Adds a file path to the list of recent files in the configuration.
+     * Ensures the list does not exceed the maximum allowed size.
+     *
+     * @param filePath The file path to add.
+     */
+    public void addRecentFile(String filePath) {
+
+        loadConfig();
+
+        List<String> recentFiles = new ArrayList<>(configuration.getRecentFiles());
+
+        recentFiles.remove(filePath);
+        recentFiles.addFirst(filePath);
+
+        if (recentFiles.size() > ArdaBiomesEditorConfiguration.MAX_RECENT_FILES) {
+            recentFiles = recentFiles.subList(0, ArdaBiomesEditorConfiguration.MAX_RECENT_FILES);
+        }
+        configuration.setRecentFiles(recentFiles);
+        saveConfig(configuration);
+
+        validateRecentFiles();
+    }
+
+    /**
      * Loads the configuration from the configuration file.
      * If the file does not exist, initializes a new configuration.
      */
@@ -125,42 +149,6 @@ public class ConfigurationService {
     }
 
     /**
-     * Adds a file path to the list of recent files in the configuration.
-     * Ensures the list does not exceed the maximum allowed size.
-     *
-     * @param filePath The file path to add.
-     */
-    public void addRecentFile(String filePath) {
-
-        loadConfig();
-
-        List<String> recentFiles = new ArrayList<>(configuration.getRecentFiles());
-
-        recentFiles.remove(filePath);
-        recentFiles.addFirst(filePath);
-
-        if (recentFiles.size() > configuration.getMaxRecentFiles()) {
-            recentFiles = recentFiles.subList(0, configuration.getMaxRecentFiles());
-        }
-        configuration.setRecentFiles(recentFiles);
-        saveConfig(configuration);
-
-        validateRecentFiles();
-    }
-
-    /**
-     * Retrieves the list of recent files from the configuration.
-     * Validates the list to ensure all files exist.
-     *
-     * @return The list of recent files.
-     */
-    public List<String> recentFiles() {
-
-        validateRecentFiles();
-        return configuration.getRecentFiles();
-    }
-
-    /**
      * Validates the list of recent files in the configuration.
      * Removes any files that no longer exist.
      */
@@ -181,11 +169,23 @@ public class ConfigurationService {
     }
 
     /**
+     * Retrieves the list of recent files from the configuration.
+     * Validates the list to ensure all files exist.
+     *
+     * @return The list of recent files.
+     */
+    public List<String> recentFiles() {
+
+        validateRecentFiles();
+        return configuration.getRecentFiles();
+    }
+
+    /**
      * Retrieves the directory where log files are stored.
      *
      * @return The path to the logs directory.
      */
-    public Path getLogsDirectory(){
+    public Path getLogsDirectory() {
 
         return this.configPath.getParent();
     }

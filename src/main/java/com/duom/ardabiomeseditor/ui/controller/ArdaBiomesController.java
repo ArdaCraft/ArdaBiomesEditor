@@ -1,9 +1,9 @@
 package com.duom.ardabiomeseditor.ui.controller;
 
 import com.duom.ardabiomeseditor.ArdaBiomesEditor;
-import com.duom.ardabiomeseditor.model.ColorData;
-import com.duom.ardabiomeseditor.services.*;
-import com.duom.ardabiomeseditor.ui.views.BiomeTableView;
+import com.duom.ardabiomeseditor.model.ResourceIdentifier;
+import com.duom.ardabiomeseditor.services.I18nService;
+import com.duom.ardabiomeseditor.services.ResourcePackService;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -12,33 +12,24 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-import java.util.List;
 import java.util.Map;
 
 /**
- * Controller for managing the main application logic and coordinating interactions
- * between the UI components and the underlying services.
+ * Main UI controller - orchestrates the various sub-controllers and manages user interactions.
  */
 public class ArdaBiomesController {
 
+    private final ResourcePackService resourcePackService = new ResourcePackService();
+
+    /* UI Elements */
+
     @FXML private StackPane rootPane;
-    @FXML private VBox biomeEditorContent;
-
-    @FXML private Label biomeTitle;
-
-    @FXML private BiomeTableView biomeTableView;
+    @FXML private ColormapController colormapController;
     @FXML private VBox progressOverlay;
     @FXML private ProgressBar progressBar;
     @FXML private Label progressLabel;
-    @FXML private Button saveEditsButton;
-
-    @FXML private VBox indexColumnContainer;
-
-    @FXML private ColorEditorController colorEditorController;
-    @FXML private BiomeSelectorController biomeSelectionController;
+    @FXML private ResourceSelectorController resourceSelectorController;
     @FXML private FileManagementController fileManagementController;
-
-    private final ResourcePackService resourcePackService = new ResourcePackService();
 
     /**
      * Initializes the controller and sets up the GUI components.
@@ -48,7 +39,17 @@ public class ArdaBiomesController {
         ArdaBiomesEditor.LOGGER.info("Initializing controller GUI components");
         initializeSubControllers();
 
-        saveEditsButton.setGraphic(GuiResourceService.getIcon(GuiResourceService.IconType.SAVE));
+        loadStyleSheets();
+    }
+
+    /**
+     * Loads the CSS stylesheets for the application.
+     */
+    private void loadStyleSheets() {
+        var cssResource = getClass().getResource("/css/ardabiomes-editor.css");
+
+        if (cssResource != null)
+            rootPane.getStylesheets().add(cssResource.toExternalForm());
     }
 
     /**
@@ -56,40 +57,37 @@ public class ArdaBiomesController {
      */
     private void initializeSubControllers() {
 
-        colorEditorController.setBiomeTableView(biomeTableView);
-
-        biomeTableView.setClickHandler((col, event) -> colorEditorController.handleTableClick(event));
-        biomeTableView.setIndexDisplayContainer(indexColumnContainer);
-
-        biomeSelectionController.resetBiomeTableView(biomeTableView);
-        biomeSelectionController.setResourcePackService(resourcePackService);
-        biomeSelectionController.setSetSelectionChangedCallback(this::biomeSelectionChanged);
+        resourceSelectorController.setResourcePackService(resourcePackService);
+        resourceSelectorController.setBiomeMappingSelectionChangedCallback(this::biomeSelectionChanged);
+        resourceSelectorController.setColormapSelectionChangedCallback(this::colormapSelectionChanged);
+        resourceSelectorController.setDefaultSelectionChangedCallback(this::defaultSelection);
 
         fileManagementController.setResourcePackService(resourcePackService);
-        fileManagementController.setOnFileLoadedCallback(path -> biomeSelectionController.loadBiomes());
-        fileManagementController.setShowAllCallback(biomeTableView::showAllColumns);
+        fileManagementController.setOnFileLoadedCallback(refreshList -> {
+            if (!refreshList) resourceSelectorController.reload();
+        });
+
         fileManagementController.setSaveCallback(this::saveBiomeEdits);
         fileManagementController.setMenuExitCallback(this::onExitApplication);
         fileManagementController.setResourcePackLoadCallback(this::clearUiOnResourcePackLoad);
     }
 
-    @FXML
-    public void onSaveBiomeEdits(){
-        saveBiomeEdits(()->{});
-    }
-
     /**
      * Saves the current biome edits and executes a callback upon success.
+     *
      * @param onSuccess The callback to execute after successfully saving the edits.
      */
     private void saveBiomeEdits(Runnable onSuccess) {
 
         ArdaBiomesEditor.LOGGER.info("Persisting biome edits");
 
-        Map<String, List<ColorData>> colorChanges = biomeTableView.getAllColorChanges();
+        Map<ResourceIdentifier, int[]> colorChanges = colormapController.getAllColorChanges();
+        ResourceIdentifier currentSelection = colormapController.getDisplayedResourceIdentifier();
+        boolean updateBiome = colormapController.getDisplayedResourceType() == ColormapController.DisplayedResourceType.BIOME_MAPPED_COLORMAP;
+
         if (colorChanges.isEmpty()) return;
 
-        Task<Void> saveTask = createSaveTask(colorChanges);
+        Task<Void> saveTask = createSaveTask(currentSelection, colorChanges, updateBiome);
 
         progressBar.progressProperty().bind(saveTask.progressProperty());
         progressLabel.textProperty().bind(saveTask.messageProperty());
@@ -102,16 +100,19 @@ public class ArdaBiomesController {
     }
 
     /**
-     * Creates a task for saving biome edits.
-     * @param colorChanges A map of color changes to persist.
+     * Creates a task for saving colormaps edits.
+     *
+     * @param root               The root resource identifier. Can be a pointer to a mapped biome or modifier.
+     * @param colorChanges       A map of color changes to persist.
+     * @param biomeMappedChanges Indicates if the changes are biome-mapped - ie edits to multiple modifiers or single modifier.
      * @return A task that performs the save operation.
      */
-    private Task<Void> createSaveTask(Map<String, List<ColorData>> colorChanges) {
+    private Task<Void> createSaveTask(ResourceIdentifier root, Map<ResourceIdentifier, int[]> colorChanges, boolean biomeMappedChanges) {
         return new Task<>() {
             @Override
             protected Void call() throws Exception {
                 updateMessage(I18nService.get("ardabiomeseditor.save.step.persisting",
-                        resourcePackService.getCurrentResourcePackPath().getFileName().toString()));
+                        resourcePackService.getCurrentResourcePackPath()));
                 updateProgress(0, 100);
 
                 Thread.sleep(10);
@@ -120,18 +121,19 @@ public class ArdaBiomesController {
                 updateProgress(5, 100);
 
                 resourcePackService.persistColorChanges(
-                        biomeTableView.getBiomeKey(),
+                        root,
                         colorChanges,
+                        biomeMappedChanges,
                         (message, progress) -> {
                             updateMessage(message);
-                            updateProgress(5 + (progress * 0.9), 100);
+                            updateProgress(5 + (progress * 0.85), 100);
                         }
                 );
 
                 updateProgress(95, 100);
                 updateMessage(I18nService.get("ardabiomeseditor.save.step.refresh_rp"));
 
-                biomeTableView.persistColorChanges();
+                colormapController.persistColorChanges();
 
                 updateProgress(100, 100);
                 updateMessage(I18nService.get("ardabiomeseditor.save.step.complete"));
@@ -143,20 +145,22 @@ public class ArdaBiomesController {
 
     /**
      * Handles the successful completion of a save operation.
+     *
      * @param onSuccess The callback to execute after a successful save.
      */
     private void handleSaveSuccess(Runnable onSuccess) {
         ArdaBiomesEditor.LOGGER.info("Successfully persisted edits");
 
         fileManagementController.loadResourcePack(resourcePackService.getCurrentResourcePackPath(), true);
-
         progressOverlay.setVisible(false);
+        colormapController.persistColorChanges();
 
         if (onSuccess != null) onSuccess.run();
     }
 
     /**
      * Handles a failure during the save operation.
+     *
      * @param saveTask The task that encountered the failure.
      */
     private void handleSaveFailure(Task<Void> saveTask) {
@@ -172,55 +176,124 @@ public class ArdaBiomesController {
         alert.getButtonTypes().setAll(new ButtonType(I18nService.get("ardabiomeseditor.generic.ok")));
 
         alert.showAndWait();
-
     }
 
     /**
      * Handles changes in biome selection.
-     * Prompts the user to save unsaved changes before switching to the new selection.
-     * @param oldSelection The previous biome selection.
+     *
+     * @param previousSelection The previous biome selection.
      */
-    private void biomeSelectionChanged(String oldSelection) {
+    private void biomeSelectionChanged(ResourceIdentifier previousSelection) {
 
-        biomeEditorContent.setManaged(true);
-        biomeEditorContent.setVisible(true);
+        var currentSelection = resourceSelectorController.getTreeSelection();
+        configureColormap(previousSelection, () -> loadBiomeColormap(currentSelection));
+    }
 
-        var currentSelection = biomeSelectionController.getCurrentSelectedBiome();
+    /**
+     * Handles changes in colormap selection.
+     *
+     * @param previousSelection the previous colormap selection.
+     */
+    private void colormapSelectionChanged(ResourceIdentifier previousSelection) {
 
-        if (biomeTableView.hasUnsavedChanges() && oldSelection != null && !oldSelection.equals(currentSelection)) {
+        var currentSelection = resourceSelectorController.getTreeSelection();
+        configureColormap(previousSelection, () -> loadColormap(currentSelection));
+    }
+
+    /**
+     * Handles selection for an unsupported resource type.
+     *
+     * @param previousSelection the previous resource selection.
+     */
+    private void defaultSelection(ResourceIdentifier previousSelection) {
+
+        if (previousSelection != null && colormapController.hasUnsavedChanges()) {
 
             showUnsavedChangesDialog(() -> {
-
-                        biomeTitle.setText(currentSelection);
-                        biomeSelectionController.confirmSelectionChange();
-                        biomeSelectionController.loadNewBiomeData(currentSelection);
+                        colormapController.setVisible(false);
                     },
                     () -> {
-                        biomeTitle.setText(oldSelection);
-                        biomeTableView.resetChanges(biomeTableView.getSelectedColumns());
-                        colorEditorController.resetAndHideUi();
-                        biomeSelectionController.confirmSelectionChange();
-                        biomeSelectionController.loadNewBiomeData(currentSelection);
+                        colormapController.resetChanges();
+                        colormapController.setVisible(false);
                     },
                     () -> {
-                        biomeTitle.setText(oldSelection);
-                        biomeSelectionController.revertSelection();
-            });
+                        resourceSelectorController.revertSelection(previousSelection);
+                    });
 
         } else {
 
-            biomeTitle.setText(currentSelection);
-            colorEditorController.resetAndHideUi();
-            biomeSelectionController.confirmSelectionChange();
-            biomeSelectionController.loadNewBiomeData(currentSelection);
+            colormapController.setVisible(false);
         }
+    }
+
+
+    /**
+     * Configures the colormap controller based on the current selection.
+     * Prompts the user to handle unsaved changes if necessary.
+     *
+     * @param previousSelection      The previous resource identifier selection.
+     * @param onSwitchToNewSelection The callback to execute when switching to the new selection.
+     */
+    private void configureColormap(ResourceIdentifier previousSelection, Runnable onSwitchToNewSelection) {
+
+        colormapController.setVisible(true);
+
+        if (previousSelection != null && colormapController.hasUnsavedChanges()) {
+
+            showUnsavedChangesDialog(onSwitchToNewSelection,
+                    () -> {
+                        colormapController.resetChanges();
+                        onSwitchToNewSelection.run();
+                    },
+                    () -> {
+                        resourceSelectorController.revertSelection(previousSelection);
+                    });
+
+        } else {
+
+            onSwitchToNewSelection.run();
+        }
+    }
+
+
+    /**
+     * Loads color mappings for the specified biome identifier and updates the UI.
+     * This method lists all the modifiers in the identifier's namespace that have colormaps and loads their mapped colors.
+     *
+     * @param identifier The resource identifier of the biome (namespace, biome_id_mapper name and biome index).
+     */
+    private void loadBiomeColormap(ResourceIdentifier identifier) {
+
+        if (identifier == null) return;
+
+        ArdaBiomesEditor.LOGGER.info("Loading mapped colors Biome {} in namespace {}", identifier, identifier.namespace());
+        colormapController.configure(identifier,
+                ColormapController.DisplayedResourceType.BIOME_MAPPED_COLORMAP,
+                resourcePackService.getMappedColorsFromBiome(identifier));
+    }
+
+    /**
+     * Loads color mappings for the specified modifier identifier and updates the UI.
+     * This method loads all the colors mapped by the modifier's colormaps.
+     *
+     * @param identifier The resource identifier of the colormap (namespace and colormap name).
+     */
+    private void loadColormap(ResourceIdentifier identifier) {
+
+        if (identifier == null) return;
+
+        ArdaBiomesEditor.LOGGER.info("Loading mapped colors for Colormap {} in {}", identifier, identifier.namespace());
+        colormapController.configure(identifier,
+                ColormapController.DisplayedResourceType.COLORMAP,
+                resourcePackService.getColormapColors(identifier));
     }
 
     /**
      * Displays a dialog to handle unsaved changes.
      * Provides options to save, reset, or cancel the operation.
-     * @param onSave The callback to execute if the user chooses to save.
-     * @param onReset The callback to execute if the user chooses to reset.
+     *
+     * @param onSave   The callback to execute if the user chooses to save.
+     * @param onReset  The callback to execute if the user chooses to reset.
      * @param onCancel The callback to execute if the user cancels the operation.
      */
     private void showUnsavedChangesDialog(Runnable onSave, Runnable onReset, Runnable onCancel) {
@@ -245,6 +318,7 @@ public class ArdaBiomesController {
 
     /**
      * Clears the UI components when a new resource pack is loaded.
+     *
      * @param filePath the path of the loaded resource pack.
      */
     private void clearUiOnResourcePackLoad(String filePath) {
@@ -252,32 +326,30 @@ public class ArdaBiomesController {
         Stage stage = (Stage) rootPane.getScene().getWindow();
         stage.setTitle("ArdaBiomes Editor - " + filePath);
 
-        biomeTableView.clear();
-        colorEditorController.resetAndHideUi();
-        biomeSelectionController.resetSelection();
-
-        biomeEditorContent.setManaged(false);
-        biomeEditorContent.setVisible(false);
+        resourceSelectorController.resetSelection();
+        colormapController.setVisible(false);
     }
 
     /**
      * Handles the application exit process.
      * Prompts the user to save unsaved changes before exiting.
+     *
      * @param exitAction The callback to execute for exiting the application.
      */
-    public void onExitApplication(Runnable exitAction){
+    public void onExitApplication(Runnable exitAction) {
 
-        if (biomeTableView.hasUnsavedChanges()) {
+        if (colormapController.hasUnsavedChanges()) {
 
             showUnsavedChangesDialog(
                     () -> {
                         saveBiomeEdits(exitAction);
                     },
                     () -> {
-                        biomeTableView.resetChanges(biomeTableView.getSelectedColumns());
+                        colormapController.resetChanges();
                         exitAction.run();
                     },
-                    () -> {}
+                    () -> {
+                    }
             );
 
         } else {

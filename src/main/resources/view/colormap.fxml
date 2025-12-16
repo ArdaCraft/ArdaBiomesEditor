@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<SplitPane fx:controller="com.duom.ardabiomeseditor.ui.controller.ColormapController"
+           xmlns="http://javafx.com/javafx"
+           xmlns:fx="http://javafx.com/fxml"
+           fx:id="editorRoot"
+           dividerPositions=".70"
+           visible="false">
+
+    <BorderPane fx:id="colormapRoot"
+                styleClass="colormap">
+
+        <top>
+            <VBox>
+                <ScrollPane fx:id="headerScroll" styleClass="headers" hbarPolicy="NEVER">
+                    <StackPane fx:id="headersContainer">
+                        <Region fx:id="insertLine" styleClass="headers-insert-line" visible="false" minWidth="2"
+                                maxWidth="2" prefWidth="2" StackPane.alignment="CENTER_LEFT"/>
+                        <HBox fx:id="columnHeaders" BorderPane.alignment="TOP_CENTER"
+                              StackPane.alignment="CENTER_LEFT"/>
+                    </StackPane>
+                </ScrollPane>
+            </VBox>
+        </top>
+
+        <center>
+            <ScrollPane fx:id="canvasScroll" styleClass="pixelCanvas">
+                <BorderPane fx:id="canvasLayout">
+                    <left>
+                        <VBox fx:id="rowIndex" styleClass="indexColumn" BorderPane.alignment="TOP_LEFT"/>
+                    </left>
+                    <center>
+                        <Pane fx:id="canvasPane" BorderPane.alignment="TOP_LEFT">
+                            <Canvas fx:id="canvas"/>
+                        </Pane>
+                    </center>
+                </BorderPane>
+            </ScrollPane>
+        </center>
+
+        <bottom>
+            <HBox styleClass="bottomToolbar">
+                <Button fx:id="resetZoomButton" onAction="#onResetZoom"/>
+                <Button fx:id="fitColumnsToViewButton" onAction="#onFitColumnsToView"/>
+                <ToggleButton fx:id="showCheckerToggle" selected="true"/>
+
+                <HBox HBox.hgrow="ALWAYS" alignment="CENTER">
+                    <HBox.margin>
+                        <Insets left="10" right="10"/>
+                    </HBox.margin>
+                    <Label fx:id="headerHoverLabel" styleClass="hover-info" textAlignment="CENTER">
+                        <HBox.margin>
+                            <Insets>
+                                <right>10</right>
+                            </Insets>
+                        </HBox.margin>
+                    </Label>
+                    <Label fx:id="headerSelectionLabel" styleClass="selection-info" textAlignment="CENTER"/>
+                </HBox>
+
+                <VBox alignment="CENTER">
+                    <Button fx:id="zoomOutButton"/>
+                </VBox>
+                <VBox alignment="CENTER">
+                    <Slider fx:id="zoomSlider" prefHeight="16" prefWidth="250"/>
+                </VBox>
+                <VBox alignment="CENTER">
+                    <Button fx:id="zoomInButton"/>
+                </VBox>
+
+            </HBox>
+        </bottom>
+
+    </BorderPane>
+
+    <fx:include fx:id="colorEditor" source="colormapEditor.fxml"/>
+</SplitPane>

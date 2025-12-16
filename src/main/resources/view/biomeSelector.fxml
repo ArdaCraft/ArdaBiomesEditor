@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.control.*?>
-
-<ListView xmlns="http://javafx.com/javafx"
-          xmlns:fx="http://javafx.com/fxml"
-          fx:id="biomeList"
-          fx:controller="com.duom.ardabiomeseditor.ui.controller.BiomeSelectorController"/>
