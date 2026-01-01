@@ -27,6 +27,37 @@ The displayed resources can be one of the following types:
 
 The colormap editor allows editing of colormaps and biome mappings.
 
+#### Keybinds
+
+> **Canvas Editor**
+>
+> | Shortcut            | Action              |
+> |---------------------|---------------------|
+> | `CTRL` + `Click`    | Select multiple     |
+> | `CTRL` + `A`        | Select all          |
+> | `CTRL` + `D`        | Deselect            |
+> | `CTRL` + `I`        | Invert selection    |
+> | `CTRL` + `H`        | Hide column         |
+> | `ALT` + `H`         | Unhide all          |
+>
+> **Mouse navigation**
+>
+> | Shortcut                 | Action        |
+> |--------------------------|---------------|
+> | `CTRL` + `Scroll`        | Zoom in / out |
+> | `Middle mouse click`     | Panning       |
+>
+> **Bottom toolbar**
+>
+> - <img src="src/main/resources/assets/icons/tabler/tabler--arrow-autofit-content-filled.svg" alt="Biome mapper icon" width="16" height="16"/> Fit all the columns into view
+> - <img src="src/main/resources/assets/icons/tabler/tabler--arrow-autofit-height-filled.svg" alt="Biome mapper icon" width="16" height="16"/> Fit all the rows into view
+> - <img src="src/main/resources/assets/icons/mdi/mdi--checkerboard.svg" alt="Checkerboard icon icon" width="16" height="16"/> Display checkerboard (for transparency editing)
+>
+> **Sliders**
+>
+> - Double click on the thumb resets the slider to 0
+
+
 #### Center panel
 
 - When a **colormap** resource is selected, the editor displays the associated texture and its mappings (if defined in json).
