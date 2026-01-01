@@ -11,6 +11,8 @@ Download the latest release and unzip the archive. Run `ArdaBiomesEditor.exe` to
 
 - `File` → `Open Folder...` to load a [resource pack](https://github.com/ArdaCraft/ACRP). The resource pack needs to contain [polytone](https://github.com/MehVahdJukaar/polytone) definitions, see the [Polytone Sample Pack](https://github.com/MehVahdJukaar/polytone/tree/1.21.1/polytone_sample_pack) for a working example.
 
+<p align="center"><img src="https://github.com/user-attachments/assets/96a64b56-94bf-4702-ad8f-0244a636f7a8" /></p>
+
 ### Resource Tree
 
 The left pane displays the resource tree of the loaded resource pack. The tree can be filtered using the dropdown.
